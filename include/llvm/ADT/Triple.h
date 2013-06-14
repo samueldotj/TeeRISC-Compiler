@@ -58,6 +58,7 @@ public:
     sparcv9, // Sparcv9: Sparcv9
     systemz, // SystemZ: s390x
     tce,     // TCE (http://tce.cs.tut.fi/): tce
+    teerisc, // TeeRISC: TeeRISC
     thumb,   // Thumb: thumb, thumbv.*
     x86,     // X86: i[3-9]86
     x86_64,  // X86-64: amd64, x86_64

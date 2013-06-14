@@ -85,6 +85,7 @@ set(LLVM_ALL_TARGETS
   PowerPC
   Sparc
   SystemZ
+  TeeRISC
   X86
   XCore
   )
