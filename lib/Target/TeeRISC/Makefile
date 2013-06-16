@@ -14,7 +14,8 @@ TARGET = TeeRISC
 # Make sure that tblgen is run, first thing.
 BUILT_SOURCES = TeeRISCGenRegisterInfo.inc TeeRISCGenInstrInfo.inc \
 		TeeRISCGenAsmWriter.inc TeeRISCGenDAGISel.inc \
-		TeeRISCGenSubtargetInfo.inc TeeRISCGenCallingConv.inc
+		TeeRISCGenSubtargetInfo.inc TeeRISCGenCallingConv.inc \
+		TeeRISCSubtargetInfo.inc
 
 DIRS = TargetInfo MCTargetDesc
 

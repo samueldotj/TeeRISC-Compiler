@@ -33,6 +33,6 @@ extern Target TheTeeRISCTarget;
 #include "TeeRISCGenInstrInfo.inc"
 
 #define GET_SUBTARGETINFO_ENUM
-//#include "TeeRISCGenSubtargetInfo.inc"
+#include "TeeRISCGenSubtargetInfo.inc"
 
 #endif

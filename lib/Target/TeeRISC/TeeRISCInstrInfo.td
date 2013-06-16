@@ -17,7 +17,47 @@
 
 include "TeeRISCInstrFormats.td"
 
-def ADD: F1<1, (outs IntRegs:$dst), (ins IntRegs:$b, IntRegs:$c), 
-            "$dst = $b + $c", 
-            [(set i32:$dst, (add i32:$b, i32:$c))]>;
+//  These are target-independent nodes, but have target-specific formats.
+def SDT_SPCallSeqStart : SDCallSeqStart<[ SDTCisVT<0, i32> ]>;
+def SDT_SPCallSeqEnd   : SDCallSeqEnd<[ SDTCisVT<0, i32>,
+                                        SDTCisVT<1, i32> ]>;
+
+def callseq_start : SDNode<"ISD::CALLSEQ_START", SDT_SPCallSeqStart,
+                           [SDNPHasChain, SDNPOutGlue]>;
+def callseq_end   : SDNode<"ISD::CALLSEQ_END",   SDT_SPCallSeqEnd,
+                           [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
+
+def SDT_SPCall    : SDTypeProfile<0, -1, [SDTCisVT<0, i32>]>;
+def call          : SDNode<"TeeRISC_ISD::CALL", SDT_SPCall,
+                           [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue,
+                            SDNPVariadic]>;
+
+def SDT_SPRet     : SDTypeProfile<0, 1, [SDTCisVT<0, i32>]>;
+def retflag       : SDNode<"TeeRISC_ISD::RET", SDT_SPRet,
+                           [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
+
+// Pseudo instructions.
+class Pseudo<dag outs, dag ins, string asmstr, list<dag> pattern>
+   : TeeRISCInst<outs, ins, asmstr, pattern, FormP>;
+
+// Instructions
+def ADD:    F1<1, (outs IntRegs:$dst), (ins IntRegs:$b, IntRegs:$c), 
+                "$dst = $b + $c", 
+                [(set i32:$dst, (add i32:$b, i32:$c))]>;
+
+def OR:     F1<7, (outs IntRegs:$dst), (ins IntRegs:$b, IntRegs:$c), 
+                "$dst = $b | $c", 
+                [(set i32:$dst, (or i32:$b, i32:$c))]>;
+
+def LD:     F3<16, (outs IntRegs:$dst), (ins IntRegs:$b), 
+                "$dst = *(uint32_t *) $b", 
+                [(set i32:$dst, (load i32:$b))]>;
+
+def ST:     F3<17, (outs), (ins IntRegs:$dst, IntRegs:$b), 
+                "*(uint32_t *)$b = $dst", 
+                [(store i32:$b, i32:$dst)]>;
+
+def CALL:   F1<19, (outs), (ins IntRegs:$dst), 
+                "$dst()", 
+                [(call i32:$dst)]>;
 

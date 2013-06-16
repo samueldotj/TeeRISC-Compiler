@@ -7,24 +7,36 @@
 //  Declarations that describe the TeeRISC register file 
 //===----------------------------------------------------------------------===//
 
-class TeeRISCReg<string n> : Register<n> {
-  field bits<5> Num;
+// Registers are identified with 5-bit ID numbers.
+class TeeRISCReg<bits<5> num, string name, list<string> alt=[]> : Register<name, alt> {
+  field bits<5> Num = num;
   let Namespace = "TeeRISC";
 }
 
-// Registers are identified with 5-bit ID numbers.
-// Ri - 32-bit integer registers
-class Ri<bits<5> num, string n> : TeeRISCReg<n> {
-  let Num = num;
+// Integer registers
+foreach i = {0-31} in
+  def R#i:  TeeRISCReg<i, "R"##i>, DwarfRegNum<[i]>;
+
+// Register Aliases
+def ZERO:   TeeRISCReg<0, "ZERO"> {
+  let Aliases = [R0];
+}
+def FP:     TeeRISCReg<14, "FP"> {
+  let Aliases = [R14];
+}
+def SP:     TeeRISCReg<15, "SP"> {
+  let Aliases = [R15];
+}
+def IP:     TeeRISCReg<16, "IP"> {
+  let Aliases = [R16];
+}
+def LR:     TeeRISCReg<17, "LR"> {
+  let Aliases = [R17];
 }
 
-// Integer registers
-foreach i = 0-31 in
-    def R#i : Ri<i, "R"##i>, DwarfRegNum<[i]>;
-
 // Register classes.
-def IntRegs : RegisterClass<"TeeRISC",
-                    /* regTypes   */ [i32], 
-                    /* alignment  */ 32, 
-                    /* memberList */ (sequence "R%u", 0, 31)>;
+def IntRegs : RegisterClass</* namespace       */ "TeeRISC", 
+                            /* register types  */ [i32], 
+                            /* alignment       */ 32, 
+                            /* memberList      */ (sequence "R%u", 0, 31)>;
 

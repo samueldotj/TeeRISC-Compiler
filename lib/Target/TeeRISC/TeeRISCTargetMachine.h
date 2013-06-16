@@ -14,13 +14,12 @@
 #ifndef TeeRISCTARGETMACHINE_H
 #define TeeRISCTARGETMACHINE_H
 
-#if 0
 #include "TeeRISCFrameLowering.h"
 #include "TeeRISCISelLowering.h"
 #include "TeeRISCInstrInfo.h"
 #include "TeeRISCSelectionDAGInfo.h"
 #include "TeeRISCSubtarget.h"
-#endif
+
 #include "llvm/IR/DataLayout.h"
 #include "llvm/Target/TargetFrameLowering.h"
 #include "llvm/Target/TargetMachine.h"
@@ -38,7 +37,7 @@ public:
   TeeRISCTargetMachine(const Target &T, StringRef TT,
                      StringRef CPU, StringRef FS, const TargetOptions &Options,
                      Reloc::Model RM, CodeModel::Model CM,
-                     CodeGenOpt::Level OL, bool is64bit);
+                     CodeGenOpt::Level OL);
 
   virtual const TeeRISCInstrInfo *getInstrInfo() const { return &InstrInfo; }
   virtual const TargetFrameLowering  *getFrameLowering() const {
@@ -54,22 +53,10 @@ public:
   virtual const TeeRISCSelectionDAGInfo* getSelectionDAGInfo() const {
     return &TSInfo;
   }
-  virtual const DataLayout       *getDataLayout() const { return &DL; }
+  virtual const DataLayout *getDataLayout() const { return &DL; }
 
   // Pass Pipeline Configuration
   virtual TargetPassConfig *createPassConfig(PassManagerBase &PM);
-};
-
-/// TeeRISCTargetMachine - TeeRISC 32-bit target machine
-///
-class TeeRISCTargetMachine : public TeeRISCTargetMachine {
-  virtual void anchor();
-public:
-  TeeRISCTargetMachine(const Target &T, StringRef TT,
-                       StringRef CPU, StringRef FS,
-                       const TargetOptions &Options,
-                       Reloc::Model RM, CodeModel::Model CM,
-                       CodeGenOpt::Level OL);
 };
 
 } // end namespace llvm

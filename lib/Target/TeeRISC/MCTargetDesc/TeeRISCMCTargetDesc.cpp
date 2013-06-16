@@ -24,17 +24,13 @@
 #include "TeeRISCGenInstrInfo.inc"
 
 #define GET_SUBTARGETINFO_MC_DESC
-//#include "TeeRISCGenSubtargetInfo.inc"
+#include "TeeRISCGenSubtargetInfo.inc"
 
 #define GET_REGINFO_MC_DESC
 #include "TeeRISCGenRegisterInfo.inc"
 
 using namespace llvm;
 
-extern "C" void LLVMInitializeTeeRISCTargetMC() {
-}
-
-#if 0
 static MCInstrInfo *createTeeRISCMCInstrInfo() {
   MCInstrInfo *X = new MCInstrInfo();
   InitTeeRISCMCInstrInfo(X);
@@ -43,15 +39,15 @@ static MCInstrInfo *createTeeRISCMCInstrInfo() {
 
 static MCRegisterInfo *createTeeRISCMCRegisterInfo(StringRef TT) {
   MCRegisterInfo *X = new MCRegisterInfo();
-  InitTeeRISCMCRegisterInfo(X, SP::I7);
+  InitTeeRISCMCRegisterInfo(X, /*Return Value*/TeeRISC::R1);
   return X;
 }
 
 static MCSubtargetInfo *createTeeRISCMCSubtargetInfo(StringRef TT, StringRef CPU,
                                                    StringRef FS) {
-  MCSubtargetInfo *X = new MCSubtargetInfo();
-  InitTeeRISCMCSubtargetInfo(X, TT, CPU, FS);
-  return X;
+    MCSubtargetInfo *X = new MCSubtargetInfo();
+    InitTeeRISCMCSubtargetInfo(X, TT, CPU, FS);
+    return X;
 }
 
 // Code models. Some only make sense for 64-bit code.
@@ -78,28 +74,12 @@ static MCCodeGenInfo *createTeeRISCMCCodeGenInfo(StringRef TT, Reloc::Model RM,
   return X;
 }
 
-static MCCodeGenInfo *createTeeRISCV9MCCodeGenInfo(StringRef TT, Reloc::Model RM,
-                                                 CodeModel::Model CM,
-                                                 CodeGenOpt::Level OL) {
-  MCCodeGenInfo *X = new MCCodeGenInfo();
-
-  // The default 64-bit code model is abs44/pic32.
-  if (CM == CodeModel::Default)
-    CM = CodeModel::Medium;
-
-  X->InitMCCodeGenInfo(RM, CM, OL);
-  return X;
-}
 extern "C" void LLVMInitializeTeeRISCTargetMC() {
   // Register the MC asm info.
   RegisterMCAsmInfo<TeeRISCELFMCAsmInfo> X(TheTeeRISCTarget);
-  RegisterMCAsmInfo<TeeRISCELFMCAsmInfo> Y(TheTeeRISCV9Target);
 
   // Register the MC codegen info.
-  TargetRegistry::RegisterMCCodeGenInfo(TheTeeRISCTarget,
-                                       createTeeRISCMCCodeGenInfo);
-  TargetRegistry::RegisterMCCodeGenInfo(TheTeeRISCV9Target,
-                                       createTeeRISCV9MCCodeGenInfo);
+  TargetRegistry::RegisterMCCodeGenInfo(TheTeeRISCTarget, createTeeRISCMCCodeGenInfo);
 
   // Register the MC instruction info.
   TargetRegistry::RegisterMCInstrInfo(TheTeeRISCTarget, createTeeRISCMCInstrInfo);
@@ -108,7 +88,7 @@ extern "C" void LLVMInitializeTeeRISCTargetMC() {
   TargetRegistry::RegisterMCRegInfo(TheTeeRISCTarget, createTeeRISCMCRegisterInfo);
 
   // Register the MC subtarget info.
-  TargetRegistry::RegisterMCSubtargetInfo(TheTeeRISCTarget,
-                                          createTeeRISCMCSubtargetInfo);
+  TargetRegistry::RegisterMCSubtargetInfo(TheTeeRISCTarget, createTeeRISCMCSubtargetInfo);
+
 }
-#endif
+

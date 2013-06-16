@@ -32,6 +32,7 @@ class Format<bits<4> val> {
 def Form1 : Format<1>;
 def Form2 : Format<2>;
 def Form3 : Format<3>;
+def FormP : Format<4>;
 
 // Generic TeeRISC Format
 class TeeRISCInst<dag outs, dag ins, string asmstr, list<dag> pattern, Format f>:

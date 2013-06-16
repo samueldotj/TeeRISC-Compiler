@@ -15,6 +15,6 @@ using namespace llvm;
 Target llvm::TheTeeRISCTarget;
 
 extern "C" void LLVMInitializeTeeRISCTargetInfo() { 
-  RegisterTarget<Triple::teerisc> X(TheTeeRISCTarget, "teerisc", "teerisc");
+  RegisterTarget<Triple::teerisc> X(TheTeeRISCTarget, "teerisc", "TeeRISC");
 }
 
