@@ -19,12 +19,12 @@
 
 #include "AMDGPUAsmPrinter.h"
 #include "AMDGPU.h"
-#include "SIDefines.h"
-#include "SIMachineFunctionInfo.h"
-#include "SIRegisterInfo.h"
 #include "R600Defines.h"
 #include "R600MachineFunctionInfo.h"
 #include "R600RegisterInfo.h"
+#include "SIDefines.h"
+#include "SIMachineFunctionInfo.h"
+#include "SIRegisterInfo.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCStreamer.h"
@@ -63,7 +63,7 @@ bool AMDGPUAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
                                               ELF::SHT_PROGBITS, 0,
                                               SectionKind::getReadOnly());
   OutStreamer.SwitchSection(ConfigSection);
-  if (STM.device()->getGeneration() > AMDGPUDeviceInfo::HD6XXX) {
+  if (STM.getGeneration() > AMDGPUSubtarget::NORTHERN_ISLANDS) {
     EmitProgramInfoSI(MF);
   } else {
     EmitProgramInfoR600(MF);
@@ -105,7 +105,7 @@ void AMDGPUAsmPrinter::EmitProgramInfoR600(MachineFunction &MF) {
   }
 
   unsigned RsrcReg;
-  if (STM.device()->getGeneration() >= AMDGPUDeviceInfo::HD5XXX) {
+  if (STM.getGeneration() >= AMDGPUSubtarget::EVERGREEN) {
     // Evergreen / Northern Islands
     switch (MFI->ShaderType) {
     default: // Fall through

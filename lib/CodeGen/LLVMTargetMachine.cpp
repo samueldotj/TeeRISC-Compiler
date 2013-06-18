@@ -68,7 +68,7 @@ void LLVMTargetMachine::initAsmInfo() {
   // and if the old one gets included then MCAsmInfo will be NULL and
   // we'll crash later.
   // Provide the user with a useful error message about what's wrong.
-  assert(AsmInfo && "MCAsmInfo not initialized."
+  assert(AsmInfo && "MCAsmInfo not initialized. "
          "Make sure you include the correct TargetSelect.h"
          "and that InitializeAllTargetMCs() is being invoked!");
 }
@@ -164,6 +164,7 @@ bool LLVMTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
 
   const MCAsmInfo &MAI = *getMCAsmInfo();
   const MCRegisterInfo &MRI = *getRegisterInfo();
+  const MCInstrInfo &MII = *getInstrInfo();
   const MCSubtargetInfo &STI = getSubtarget<MCSubtargetInfo>();
   OwningPtr<MCStreamer> AsmStreamer;
 
@@ -171,16 +172,13 @@ bool LLVMTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   case CGFT_AssemblyFile: {
     MCInstPrinter *InstPrinter =
       getTarget().createMCInstPrinter(MAI.getAssemblerDialect(), MAI,
-                                      *getInstrInfo(),
-                                      Context->getRegisterInfo(), STI);
+                                      MII, MRI, STI);
 
     // Create a code emitter if asked to show the encoding.
     MCCodeEmitter *MCE = 0;
     MCAsmBackend *MAB = 0;
     if (ShowMCEncoding) {
-      const MCSubtargetInfo &STI = getSubtarget<MCSubtargetInfo>();
-      MCE = getTarget().createMCCodeEmitter(*getInstrInfo(), MRI, STI,
-                                            *Context);
+      MCE = getTarget().createMCCodeEmitter(MII, MRI, STI, *Context);
       MAB = getTarget().createMCAsmBackend(getTargetTriple(), TargetCPU);
     }
 
@@ -198,8 +196,8 @@ bool LLVMTargetMachine::addPassesToEmitFile(PassManagerBase &PM,
   case CGFT_ObjectFile: {
     // Create the code emitter for the target if it exists.  If not, .o file
     // emission fails.
-    MCCodeEmitter *MCE = getTarget().createMCCodeEmitter(*getInstrInfo(), MRI,
-                                                         STI, *Context);
+    MCCodeEmitter *MCE = getTarget().createMCCodeEmitter(MII, MRI, STI,
+                                                         *Context);
     MCAsmBackend *MAB = getTarget().createMCAsmBackend(getTargetTriple(),
                                                        TargetCPU);
     if (MCE == 0 || MAB == 0)

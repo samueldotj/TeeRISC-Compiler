@@ -362,6 +362,29 @@ error_code exists(const Twine &path, bool &result) {
   return error_code::success();
 }
 
+bool can_write(const Twine &Path) {
+  // FIXME: take security attributes into account.
+  SmallString<128> PathStorage;
+  SmallVector<wchar_t, 128> PathUtf16;
+
+  if (UTF8ToUTF16(Path.toStringRef(PathStorage), PathUtf16))
+    return false;
+
+  DWORD Attr = ::GetFileAttributesW(PathUtf16.begin());
+  return (Attr != INVALID_FILE_ATTRIBUTES) && !(Attr & FILE_ATTRIBUTE_READONLY);
+}
+
+bool can_execute(const Twine &Path) {
+  SmallString<128> PathStorage;
+  SmallVector<wchar_t, 128> PathUtf16;
+
+  if (UTF8ToUTF16(Path.toStringRef(PathStorage), PathUtf16))
+    return false;
+
+  DWORD Attr = ::GetFileAttributesW(PathUtf16.begin());
+  return Attr != INVALID_FILE_ATTRIBUTES;
+}
+
 bool equivalent(file_status A, file_status B) {
   assert(status_known(A) && status_known(B));
   return A.FileIndexHigh      == B.FileIndexHigh &&
@@ -398,6 +421,20 @@ error_code file_size(const Twine &path, uint64_t &result) {
   result =
     (uint64_t(FileData.nFileSizeHigh) << (sizeof(FileData.nFileSizeLow) * 8))
     + FileData.nFileSizeLow;
+
+  return error_code::success();
+}
+
+error_code GetUniqueID(const Twine Path, uint64_t &Result) {
+  // FIXME: this is only unique if the file is accessed by the same file path.
+  // How do we do this for C:\dir\file and ..\dir\file ? Unix has inode
+  // numbers, but the concept doesn't exist in Windows.
+  SmallString<128> Storage;
+  StringRef P = Path.toStringRef(Storage);
+  uint64_t UniqueID = 0;
+  for (StringRef::iterator I = P.begin(), E = P.end(); I != E; ++I)
+    UniqueID += *I;
+  Result = UniqueID;
 
   return error_code::success();
 }

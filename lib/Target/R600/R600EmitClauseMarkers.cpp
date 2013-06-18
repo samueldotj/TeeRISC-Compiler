@@ -23,7 +23,9 @@
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 
-namespace llvm {
+using namespace llvm;
+
+namespace {
 
 class R600EmitClauseMarkersPass : public MachineFunctionPass {
 
@@ -106,7 +108,8 @@ private:
     std::vector<std::pair<unsigned, unsigned> > UsedKCache;
     const SmallVector<std::pair<MachineOperand *, int64_t>, 3> &Consts =
         TII->getSrcs(MI);
-    assert(TII->isALUInstr(MI->getOpcode()) && "Can't assign Const");
+    assert((TII->isALUInstr(MI->getOpcode()) ||
+        MI->getOpcode() == AMDGPU::DOT_4) && "Can't assign Const");
     for (unsigned i = 0, n = Consts.size(); i < n; ++i) {
       if (Consts[i].first->getReg() != AMDGPU::ALU_CONST)
         continue;
@@ -181,6 +184,9 @@ private:
       if (TII->isALUInstr(I->getOpcode()) &&
           !SubstituteKCacheBank(I, KCacheBanks))
         break;
+      if (I->getOpcode() == AMDGPU::DOT_4 &&
+          !SubstituteKCacheBank(I, KCacheBanks))
+        break;
       AluInstCount += OccupiedDwords(I);
     }
     unsigned Opcode = PushBeforeModifier ?
@@ -199,9 +205,11 @@ private:
 
 public:
   R600EmitClauseMarkersPass(TargetMachine &tm) : MachineFunctionPass(ID),
-    TII (static_cast<const R600InstrInfo *>(tm.getInstrInfo())) { }
+    TII(0) { }
 
   virtual bool runOnMachineFunction(MachineFunction &MF) {
+    TII = static_cast<const R600InstrInfo *>(MF.getTarget().getInstrInfo());
+
     for (MachineFunction::iterator BB = MF.begin(), BB_E = MF.end();
                                                     BB != BB_E; ++BB) {
       MachineBasicBlock &MBB = *BB;
@@ -225,7 +233,7 @@ public:
 
 char R600EmitClauseMarkersPass::ID = 0;
 
-}
+} // end anonymous namespace
 
 
 llvm::FunctionPass *llvm::createR600EmitClauseMarkers(TargetMachine &TM) {

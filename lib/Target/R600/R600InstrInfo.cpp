@@ -19,8 +19,8 @@
 #include "R600Defines.h"
 #include "R600MachineFunctionInfo.h"
 #include "R600RegisterInfo.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
+#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 
 #define GET_INSTRINFO_CTOR
@@ -30,7 +30,7 @@ using namespace llvm;
 
 R600InstrInfo::R600InstrInfo(AMDGPUTargetMachine &tm)
   : AMDGPUInstrInfo(tm),
-    RI(tm, *this),
+    RI(tm),
     ST(tm.getSubtarget<AMDGPUSubtarget>())
   { }
 
@@ -169,6 +169,31 @@ SmallVector<std::pair<MachineOperand *, int64_t>, 3>
 R600InstrInfo::getSrcs(MachineInstr *MI) const {
   SmallVector<std::pair<MachineOperand *, int64_t>, 3> Result;
 
+  if (MI->getOpcode() == AMDGPU::DOT_4) {
+    static const R600Operands::VecOps OpTable[8][2] = {
+      {R600Operands::SRC0_X, R600Operands::SRC0_SEL_X},
+      {R600Operands::SRC0_Y, R600Operands::SRC0_SEL_Y},
+      {R600Operands::SRC0_Z, R600Operands::SRC0_SEL_Z},
+      {R600Operands::SRC0_W, R600Operands::SRC0_SEL_W},
+      {R600Operands::SRC1_X, R600Operands::SRC1_SEL_X},
+      {R600Operands::SRC1_Y, R600Operands::SRC1_SEL_Y},
+      {R600Operands::SRC1_Z, R600Operands::SRC1_SEL_Z},
+      {R600Operands::SRC1_W, R600Operands::SRC1_SEL_W},
+    };
+
+    for (unsigned j = 0; j < 8; j++) {
+      MachineOperand &MO = MI->getOperand(OpTable[j][0] + 1);
+      unsigned Reg = MO.getReg();
+      if (Reg == AMDGPU::ALU_CONST) {
+        unsigned Sel = MI->getOperand(OpTable[j][1] + 1).getImm();
+        Result.push_back(std::pair<MachineOperand *, int64_t>(&MO, Sel));
+        continue;
+      }
+      
+    }
+    return Result;
+  }
+
   static const R600Operands::Ops OpTable[3][2] = {
     {R600Operands::SRC0, R600Operands::SRC0_SEL},
     {R600Operands::SRC1, R600Operands::SRC1_SEL},
@@ -214,7 +239,7 @@ R600InstrInfo::ExtractSrcs(MachineInstr *MI,
       Result.push_back(DummyPair);
       continue;
     }
-    if (PV.find(Index) != PV.end()) {
+    if (PV.find(Reg) != PV.end()) {
       Result.push_back(DummyPair);
       continue;
     }
@@ -791,7 +816,8 @@ MachineInstrBuilder R600InstrInfo::buildIndirectWrite(MachineBasicBlock *MBB,
 
   MachineInstrBuilder Mov = buildDefaultInstruction(*MBB, I, AMDGPU::MOV,
                                       AddrReg, ValueReg)
-                                      .addReg(AMDGPU::AR_X, RegState::Implicit);
+                                      .addReg(AMDGPU::AR_X,
+                                           RegState::Implicit | RegState::Kill);
   setImmOperand(Mov, R600Operands::DST_REL, 1);
   return Mov;
 }
@@ -808,7 +834,8 @@ MachineInstrBuilder R600InstrInfo::buildIndirectRead(MachineBasicBlock *MBB,
   MachineInstrBuilder Mov = buildDefaultInstruction(*MBB, I, AMDGPU::MOV,
                                       ValueReg,
                                       AddrReg)
-                                      .addReg(AMDGPU::AR_X, RegState::Implicit);
+                                      .addReg(AMDGPU::AR_X,
+                                           RegState::Implicit | RegState::Kill);
   setImmOperand(Mov, R600Operands::SRC0_REL, 1);
 
   return Mov;
@@ -914,7 +941,7 @@ MachineInstr *R600InstrInfo::buildSlotOfVectorInstruction(
   assert (MI->getOpcode() == AMDGPU::DOT_4 && "Not Implemented");
   unsigned Opcode;
   const AMDGPUSubtarget &ST = TM.getSubtarget<AMDGPUSubtarget>();
-  if (ST.device()->getGeneration() <= AMDGPUDeviceInfo::HD4XXX)
+  if (ST.getGeneration() <= AMDGPUSubtarget::R700)
     Opcode = AMDGPU::DOT4_r600;
   else
     Opcode = AMDGPU::DOT4_eg;
@@ -967,6 +994,11 @@ int R600InstrInfo::getOperandIdx(const MachineInstr &MI,
   return getOperandIdx(MI.getOpcode(), Op);
 }
 
+int R600InstrInfo::getOperandIdx(const MachineInstr &MI,
+                                 R600Operands::VecOps Op) const {
+  return getOperandIdx(MI.getOpcode(), Op);
+}
+
 int R600InstrInfo::getOperandIdx(unsigned Opcode,
                                  R600Operands::Ops Op) const {
   unsigned TargetFlags = get(Opcode).TSFlags;
@@ -995,6 +1027,11 @@ int R600InstrInfo::getOperandIdx(unsigned Opcode,
   }
 
   return R600Operands::ALUOpTable[OpTableIdx][Op];
+}
+
+int R600InstrInfo::getOperandIdx(unsigned Opcode,
+                                 R600Operands::VecOps Op) const {
+  return Op + 1;
 }
 
 void R600InstrInfo::setImmOperand(MachineInstr *MI, R600Operands::Ops Op,

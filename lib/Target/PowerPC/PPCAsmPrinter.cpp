@@ -20,6 +20,7 @@
 #include "PPC.h"
 #include "InstPrinter/PPCInstPrinter.h"
 #include "MCTargetDesc/PPCPredicates.h"
+#include "MCTargetDesc/PPCMCExpr.h"
 #include "PPCSubtarget.h"
 #include "PPCTargetMachine.h"
 #include "llvm/ADT/MapVector.h"
@@ -85,18 +86,6 @@ namespace {
     bool PrintAsmMemoryOperand(const MachineInstr *MI, unsigned OpNo,
                                unsigned AsmVariant, const char *ExtraCode,
                                raw_ostream &O);
-
-    MachineLocation getDebugValueLocation(const MachineInstr *MI) const {
-      MachineLocation Location;
-      assert(MI->getNumOperands() == 4 && "Invalid no. of machine operands!");
-      // Frame address.  Currently handles register +- offset only.
-      if (MI->getOperand(0).isReg() && MI->getOperand(2).isImm())
-        Location.set(MI->getOperand(0).getReg(), MI->getOperand(2).getImm());
-      else {
-        DEBUG(dbgs() << "DBG_VALUE instruction ignored! " << *MI << "\n");
-      }
-      return Location;
-    }
   };
 
   /// PPCLinuxAsmPrinter - PowerPC assembly printer, customized for Linux
@@ -339,28 +328,8 @@ void PPCAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   // Lower multi-instruction pseudo operations.
   switch (MI->getOpcode()) {
   default: break;
-  case TargetOpcode::DBG_VALUE: {
-    if (!isVerbose() || !OutStreamer.hasRawTextSupport()) return;
-      
-    SmallString<32> Str;
-    raw_svector_ostream O(Str);
-    unsigned NOps = MI->getNumOperands();
-    assert(NOps==4);
-    O << '\t' << MAI->getCommentString() << "DEBUG_VALUE: ";
-    // cast away const; DIetc do not take const operands for some reason.
-    DIVariable V(const_cast<MDNode *>(MI->getOperand(NOps-1).getMetadata()));
-    O << V.getName();
-    O << " <- ";
-    // Frame address.  Currently handles register +- offset only.
-    assert(MI->getOperand(0).isReg() && MI->getOperand(1).isImm());
-    O << '['; printOperand(MI, 0, O); O << '+'; printOperand(MI, 1, O);
-    O << ']';
-    O << "+";
-    printOperand(MI, NOps-2, O);
-    OutStreamer.EmitRawText(O.str());
-    return;
-  }
-      
+  case TargetOpcode::DBG_VALUE:
+    llvm_unreachable("Should be handled target independently");
   case PPC::MovePCtoLR:
   case PPC::MovePCtoLR8: {
     // Transform %LR = MovePCtoLR
@@ -910,6 +879,9 @@ EmitFunctionStubs(const MachineModuleInfoMachO::SymbolListTy &Stubs) {
       OutStreamer.EmitSymbolAttribute(RawSym, MCSA_IndirectSymbol);
 
       const MCExpr *Anon = MCSymbolRefExpr::Create(AnonSymbol, OutContext);
+      const MCExpr *LazyPtrExpr = MCSymbolRefExpr::Create(LazyPtr, OutContext);
+      const MCExpr *Sub =
+        MCBinaryExpr::CreateSub(LazyPtrExpr, Anon, OutContext);
 
       // mflr r0
       OutStreamer.EmitInstruction(MCInstBuilder(PPC::MFLR).addReg(PPC::R0));
@@ -919,21 +891,20 @@ EmitFunctionStubs(const MachineModuleInfoMachO::SymbolListTy &Stubs) {
       // mflr r11
       OutStreamer.EmitInstruction(MCInstBuilder(PPC::MFLR).addReg(PPC::R11));
       // addis r11, r11, ha16(LazyPtr - AnonSymbol)
-      const MCExpr *Sub =
-        MCBinaryExpr::CreateSub(MCSymbolRefExpr::Create(LazyPtr, OutContext),
-                                Anon, OutContext);
+      const MCExpr *SubHa16 = PPCMCExpr::CreateHa16(Sub, OutContext);
       OutStreamer.EmitInstruction(MCInstBuilder(PPC::ADDIS)
         .addReg(PPC::R11)
         .addReg(PPC::R11)
-        .addExpr(Sub));
+        .addExpr(SubHa16));
       // mtlr r0
       OutStreamer.EmitInstruction(MCInstBuilder(PPC::MTLR).addReg(PPC::R0));
 
       // ldu r12, lo16(LazyPtr - AnonSymbol)(r11)
       // lwzu r12, lo16(LazyPtr - AnonSymbol)(r11)
+      const MCExpr *SubLo16 = PPCMCExpr::CreateLo16(Sub, OutContext);
       OutStreamer.EmitInstruction(MCInstBuilder(isPPC64 ? PPC::LDU : PPC::LWZU)
         .addReg(PPC::R12)
-        .addExpr(Sub).addExpr(Sub)
+        .addExpr(SubLo16).addExpr(SubLo16)
         .addReg(PPC::R11));
       // mtctr r12
       OutStreamer.EmitInstruction(MCInstBuilder(PPC::MTCTR).addReg(PPC::R12));
@@ -967,24 +938,22 @@ EmitFunctionStubs(const MachineModuleInfoMachO::SymbolListTy &Stubs) {
     MCSymbol *Stub = Stubs[i].first;
     MCSymbol *RawSym = Stubs[i].second.getPointer();
     MCSymbol *LazyPtr = GetLazyPtr(Stub, OutContext);
+    const MCExpr *LazyPtrExpr = MCSymbolRefExpr::Create(LazyPtr, OutContext);
 
     OutStreamer.SwitchSection(StubSection);
     EmitAlignment(4);
     OutStreamer.EmitLabel(Stub);
     OutStreamer.EmitSymbolAttribute(RawSym, MCSA_IndirectSymbol);
+
     // lis r11, ha16(LazyPtr)
-    const MCExpr *LazyPtrHa16 =
-      MCSymbolRefExpr::Create(LazyPtr, MCSymbolRefExpr::VK_PPC_DARWIN_HA16,
-                              OutContext);
+    const MCExpr *LazyPtrHa16 = PPCMCExpr::CreateHa16(LazyPtrExpr, OutContext);
     OutStreamer.EmitInstruction(MCInstBuilder(PPC::LIS)
       .addReg(PPC::R11)
       .addExpr(LazyPtrHa16));
 
-    const MCExpr *LazyPtrLo16 =
-      MCSymbolRefExpr::Create(LazyPtr, MCSymbolRefExpr::VK_PPC_DARWIN_LO16,
-                              OutContext);
     // ldu r12, lo16(LazyPtr)(r11)
     // lwzu r12, lo16(LazyPtr)(r11)
+    const MCExpr *LazyPtrLo16 = PPCMCExpr::CreateLo16(LazyPtrExpr, OutContext);
     OutStreamer.EmitInstruction(MCInstBuilder(isPPC64 ? PPC::LDU : PPC::LWZU)
       .addReg(PPC::R12)
       .addExpr(LazyPtrLo16).addExpr(LazyPtrLo16)

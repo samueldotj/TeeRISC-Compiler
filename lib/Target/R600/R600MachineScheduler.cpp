@@ -16,8 +16,8 @@
 #define DEBUG_TYPE "misched"
 
 #include "R600MachineScheduler.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/LiveIntervalAnalysis.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Pass.h"
 #include "llvm/PassManager.h"
 #include "llvm/Support/raw_ostream.h"
@@ -38,6 +38,8 @@ void R600SchedStrategy::initialize(ScheduleDAGMI *dag) {
 
   const AMDGPUSubtarget &ST = DAG->TM.getSubtarget<AMDGPUSubtarget>();
   InstKindLimit[IDFetch] = ST.getTexVTXClauseSize();
+  AluInstCount = 0;
+  FetchInstCount = 0;
 }
 
 void R600SchedStrategy::MoveUnits(std::vector<SUnit *> &QSrc,
@@ -45,6 +47,12 @@ void R600SchedStrategy::MoveUnits(std::vector<SUnit *> &QSrc,
 {
   QDst.insert(QDst.end(), QSrc.begin(), QSrc.end());
   QSrc.clear();
+}
+
+static
+unsigned getWFCountLimitedByGPR(unsigned GPRCount) {
+  assert (GPRCount && "GPRCount cannot be 0");
+  return 248 / GPRCount;
 }
 
 SUnit* R600SchedStrategy::pickNode(bool &IsTopNode) {
@@ -59,10 +67,48 @@ SUnit* R600SchedStrategy::pickNode(bool &IsTopNode) {
   bool AllowSwitchFromAlu = (CurEmitted >= InstKindLimit[CurInstKind]) &&
       (!Available[IDFetch].empty() || !Available[IDOther].empty());
 
-  if ((AllowSwitchToAlu && CurInstKind != IDAlu) ||
-      (!AllowSwitchFromAlu && CurInstKind == IDAlu)) {
+  if (CurInstKind == IDAlu && !Available[IDFetch].empty()) {
+    // We use the heuristic provided by AMD Accelerated Parallel Processing
+    // OpenCL Programming Guide :
+    // The approx. number of WF that allows TEX inst to hide ALU inst is :
+    // 500 (cycles for TEX) / (AluFetchRatio * 8 (cycles for ALU))
+    float ALUFetchRationEstimate = 
+        (AluInstCount + AvailablesAluCount() + Pending[IDAlu].size()) /
+        (FetchInstCount + Available[IDFetch].size());
+    unsigned NeededWF = 62.5f / ALUFetchRationEstimate;
+    DEBUG( dbgs() << NeededWF << " approx. Wavefronts Required\n" );
+    // We assume the local GPR requirements to be "dominated" by the requirement
+    // of the TEX clause (which consumes 128 bits regs) ; ALU inst before and
+    // after TEX are indeed likely to consume or generate values from/for the
+    // TEX clause.
+    // Available[IDFetch].size() * 2 : GPRs required in the Fetch clause
+    // We assume that fetch instructions are either TnXYZW = TEX TnXYZW (need
+    // one GPR) or TmXYZW = TnXYZW (need 2 GPR).
+    // (TODO : use RegisterPressure)
+    // If we are going too use too many GPR, we flush Fetch instruction to lower
+    // register pressure on 128 bits regs.
+    unsigned NearRegisterRequirement = 2 * Available[IDFetch].size();
+    if (NeededWF > getWFCountLimitedByGPR(NearRegisterRequirement))
+      AllowSwitchFromAlu = true;
+  }
+
+
+  // We want to scheduled AR defs as soon as possible to make sure they aren't
+  // put in a different ALU clause from their uses.
+  if (!SU && !UnscheduledARDefs.empty()) {
+      SU = UnscheduledARDefs[0];
+      UnscheduledARDefs.erase(UnscheduledARDefs.begin());
+      NextInstKind = IDAlu;
+  }
+
+  if (!SU && ((AllowSwitchToAlu && CurInstKind != IDAlu) ||
+      (!AllowSwitchFromAlu && CurInstKind == IDAlu))) {
     // try to pick ALU
     SU = pickAlu();
+    if (!SU && !PhysicalRegCopy.empty()) {
+      SU = PhysicalRegCopy.front();
+      PhysicalRegCopy.erase(PhysicalRegCopy.begin());
+    }
     if (SU) {
       if (CurEmitted >= InstKindLimit[IDAlu])
         CurEmitted = 0;
@@ -84,6 +130,15 @@ SUnit* R600SchedStrategy::pickNode(bool &IsTopNode) {
       NextInstKind = IDOther;
   }
 
+  // We want to schedule the AR uses as late as possible to make sure that
+  // the AR defs have been released.
+  if (!SU && !UnscheduledARUses.empty()) {
+      SU = UnscheduledARUses[0];
+      UnscheduledARUses.erase(UnscheduledARUses.begin());
+      NextInstKind = IDAlu;
+  }
+
+
   DEBUG(
       if (SU) {
         dbgs() << " ** Pick node **\n";
@@ -102,7 +157,6 @@ SUnit* R600SchedStrategy::pickNode(bool &IsTopNode) {
 }
 
 void R600SchedStrategy::schedNode(SUnit *SU, bool IsTopNode) {
-
   if (NextInstKind != CurInstKind) {
     DEBUG(dbgs() << "Instruction Type Switch\n");
     if (NextInstKind != IDAlu)
@@ -112,6 +166,7 @@ void R600SchedStrategy::schedNode(SUnit *SU, bool IsTopNode) {
   }
 
   if (CurInstKind == IDAlu) {
+    AluInstCount ++;
     switch (getAluKind(SU)) {
     case AluT_XYZW:
       CurEmitted += 4;
@@ -137,18 +192,45 @@ void R600SchedStrategy::schedNode(SUnit *SU, bool IsTopNode) {
 
   if (CurInstKind != IDFetch) {
     MoveUnits(Pending[IDFetch], Available[IDFetch]);
-  }
+  } else
+    FetchInstCount++;
+}
+
+static bool
+isPhysicalRegCopy(MachineInstr *MI) {
+  if (MI->getOpcode() != AMDGPU::COPY)
+    return false;
+
+  return !TargetRegisterInfo::isVirtualRegister(MI->getOperand(1).getReg());
 }
 
 void R600SchedStrategy::releaseTopNode(SUnit *SU) {
   DEBUG(dbgs() << "Top Releasing ";SU->dump(DAG););
-
 }
 
 void R600SchedStrategy::releaseBottomNode(SUnit *SU) {
   DEBUG(dbgs() << "Bottom Releasing ";SU->dump(DAG););
+  if (isPhysicalRegCopy(SU->getInstr())) {
+    PhysicalRegCopy.push_back(SU);
+    return;
+  }
 
   int IK = getInstKind(SU);
+
+  // Check for AR register defines
+  for (MachineInstr::const_mop_iterator I = SU->getInstr()->operands_begin(),
+                                        E = SU->getInstr()->operands_end();
+                                        I != E; ++I) {
+    if (I->isReg() && I->getReg() == AMDGPU::AR_X) {
+      if (I->isDef()) {
+        UnscheduledARDefs.push_back(SU);
+      } else {
+        UnscheduledARUses.push_back(SU);
+      }
+      return;
+    }
+  }
+
   // There is no export clause, we can schedule one as soon as its ready
   if (IK == IDOther)
     Available[IDOther].push_back(SU);
@@ -323,16 +405,15 @@ SUnit *R600SchedStrategy::AttemptFillSlot(unsigned Slot) {
   return UnslotedSU;
 }
 
-bool R600SchedStrategy::isAvailablesAluEmpty() const {
-  return Pending[IDAlu].empty() && AvailableAlus[AluAny].empty() &&
-      AvailableAlus[AluT_XYZW].empty() && AvailableAlus[AluT_X].empty() &&
-      AvailableAlus[AluT_Y].empty() && AvailableAlus[AluT_Z].empty() &&
-      AvailableAlus[AluT_W].empty() && AvailableAlus[AluDiscarded].empty() &&
-      AvailableAlus[AluPredX].empty();
+unsigned R600SchedStrategy::AvailablesAluCount() const {
+  return AvailableAlus[AluAny].size() + AvailableAlus[AluT_XYZW].size() +
+      AvailableAlus[AluT_X].size() + AvailableAlus[AluT_Y].size() +
+      AvailableAlus[AluT_Z].size() + AvailableAlus[AluT_W].size() +
+      AvailableAlus[AluDiscarded].size() + AvailableAlus[AluPredX].size();
 }
 
 SUnit* R600SchedStrategy::pickAlu() {
-  while (!isAvailablesAluEmpty()) {
+  while (AvailablesAluCount() || !Pending[IDAlu].empty()) {
     if (!OccupedSlotsMask) {
       // Bottom up scheduling : predX must comes first
       if (!AvailableAlus[AluPredX].empty()) {

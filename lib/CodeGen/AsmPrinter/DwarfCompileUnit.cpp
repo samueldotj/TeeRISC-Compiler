@@ -33,7 +33,7 @@ using namespace llvm;
 
 /// CompileUnit - Compile unit constructor.
 CompileUnit::CompileUnit(unsigned UID, unsigned L, DIE *D, const MDNode *N,
-			 AsmPrinter *A, DwarfDebug *DW, DwarfUnits *DWU)
+                         AsmPrinter *A, DwarfDebug *DW, DwarfUnits *DWU)
   : UniqueID(UID), Language(L), CUDie(D), Asm(A), DD(DW), DU(DWU),
     IndexTyDie(0), DebugInfoOffset(0) {
   DIEIntegerOne = new (DIEValueAllocator) DIEInteger(1);
@@ -1133,16 +1133,6 @@ DIE *CompileUnit::getOrCreateNameSpace(DINameSpace NS) {
   return NDie;
 }
 
-/// getRealLinkageName - If special LLVM prefix that is used to inform the asm
-/// printer to not emit usual symbol prefix before the symbol name is used then
-/// return linkage name after skipping this special LLVM prefix.
-static StringRef getRealLinkageName(StringRef LinkageName) {
-  char One = '\1';
-  if (LinkageName.startswith(StringRef(&One, 1)))
-    return LinkageName.substr(1);
-  return LinkageName;
-}
-
 /// getOrCreateSubprogramDIE - Create new DIE using SP.
 DIE *CompileUnit::getOrCreateSubprogramDIE(DISubprogram SP) {
   DIE *SPDie = getDIE(SP);
@@ -1175,7 +1165,7 @@ DIE *CompileUnit::getOrCreateSubprogramDIE(DISubprogram SP) {
   StringRef LinkageName = SP.getLinkageName();
   if (!LinkageName.empty() && DD->useDarwinGDBCompat())
     addString(SPDie, dwarf::DW_AT_MIPS_linkage_name,
-              getRealLinkageName(LinkageName));
+              GlobalValue::getRealLinkageName(LinkageName));
 
   // If this DIE is going to refer declaration info using AT_specification
   // then there is no need to add other attributes.
@@ -1190,7 +1180,7 @@ DIE *CompileUnit::getOrCreateSubprogramDIE(DISubprogram SP) {
   // Add the linkage name if we have one.
   if (!LinkageName.empty() && !DD->useDarwinGDBCompat())
     addString(SPDie, dwarf::DW_AT_MIPS_linkage_name,
-              getRealLinkageName(LinkageName));
+              GlobalValue::getRealLinkageName(LinkageName));
 
   // Constructors and operators for anonymous aggregates do not have names.
   if (!SP.getName().empty())
@@ -1208,13 +1198,11 @@ DIE *CompileUnit::getOrCreateSubprogramDIE(DISubprogram SP) {
 
   // Add Return Type.
   DICompositeType SPTy = SP.getType();
-  DIArray Args = SPTy.getTypeArray();
-  unsigned SPTag = SPTy.getTag();
+  assert(SPTy.getTag() == dwarf::DW_TAG_subroutine_type &&
+         "the type of a subprogram should be a subroutine");
 
-  if (Args.getNumElements() == 0 || SPTag != dwarf::DW_TAG_subroutine_type)
-    addType(SPDie, SPTy);
-  else
-    addType(SPDie, DIType(Args.getElement(0)));
+  DIArray Args = SPTy.getTypeArray();
+  addType(SPDie, DIType(Args.getElement(0)));
 
   unsigned VK = SP.getVirtuality();
   if (VK) {
@@ -1232,19 +1220,14 @@ DIE *CompileUnit::getOrCreateSubprogramDIE(DISubprogram SP) {
 
     // Add arguments. Do not add arguments for subprogram definition. They will
     // be handled while processing variables.
-    DICompositeType SPTy = SP.getType();
-    DIArray Args = SPTy.getTypeArray();
-    unsigned SPTag = SPTy.getTag();
-
-    if (SPTag == dwarf::DW_TAG_subroutine_type)
-      for (unsigned i = 1, N =  Args.getNumElements(); i < N; ++i) {
-        DIE *Arg = new DIE(dwarf::DW_TAG_formal_parameter);
-        DIType ATy = DIType(Args.getElement(i));
-        addType(Arg, ATy);
-        if (ATy.isArtificial())
-          addFlag(Arg, dwarf::DW_AT_artificial);
-        SPDie->addChild(Arg);
-      }
+    for (unsigned i = 1, N =  Args.getNumElements(); i < N; ++i) {
+      DIE *Arg = new DIE(dwarf::DW_TAG_formal_parameter);
+      DIType ATy = DIType(Args.getElement(i));
+      addType(Arg, ATy);
+      if (ATy.isArtificial())
+        addFlag(Arg, dwarf::DW_AT_artificial);
+      SPDie->addChild(Arg);
+    }
   }
 
   if (SP.isArtificial())
@@ -1374,12 +1357,12 @@ void CompileUnit::createGlobalVariableDIE(const MDNode *N) {
       // TAG_variable.
       addString(IsStaticMember && VariableSpecDIE ?
                 VariableSpecDIE : VariableDIE, dwarf::DW_AT_MIPS_linkage_name,
-                getRealLinkageName(LinkageName));
+                GlobalValue::getRealLinkageName(LinkageName));
       // In compatibility mode with older gdbs we put the linkage name on both
       // the TAG_variable DIE and on the TAG_member DIE.
       if (IsStaticMember && VariableSpecDIE && DD->useDarwinGDBCompat())
         addString(VariableDIE, dwarf::DW_AT_MIPS_linkage_name,
-                  getRealLinkageName(LinkageName));
+                  GlobalValue::getRealLinkageName(LinkageName));
     }
   } else if (const ConstantInt *CI =
              dyn_cast_or_null<ConstantInt>(GV.getConstant())) {
@@ -1542,43 +1525,23 @@ DIE *CompileUnit::constructVariableDIE(DbgVariable *DV, bool isScopeAbstract) {
   // Check if variable is described by a DBG_VALUE instruction.
   if (const MachineInstr *DVInsn = DV->getMInsn()) {
     bool updated = false;
-    if (DVInsn->getNumOperands() == 3) {
-      if (DVInsn->getOperand(0).isReg()) {
-        const MachineOperand RegOp = DVInsn->getOperand(0);
-        const TargetRegisterInfo *TRI = Asm->TM.getRegisterInfo();
-        if (DVInsn->getOperand(1).isImm() &&
-            TRI->getFrameRegister(*Asm->MF) == RegOp.getReg()) {
-          unsigned FrameReg = 0;
-          const TargetFrameLowering *TFI = Asm->TM.getFrameLowering();
-          int Offset =
-            TFI->getFrameIndexReference(*Asm->MF,
-                                        DVInsn->getOperand(1).getImm(),
-                                        FrameReg);
-          MachineLocation Location(FrameReg, Offset);
-          addVariableAddress(DV, VariableDie, Location);
-
-        } else if (RegOp.getReg())
-          addVariableAddress(DV, VariableDie,
-                                         MachineLocation(RegOp.getReg()));
-        updated = true;
-      }
-      else if (DVInsn->getOperand(0).isImm())
-        updated =
-          addConstantValue(VariableDie, DVInsn->getOperand(0),
-                                       DV->getType());
-      else if (DVInsn->getOperand(0).isFPImm())
-        updated =
-          addConstantFPValue(VariableDie, DVInsn->getOperand(0));
-      else if (DVInsn->getOperand(0).isCImm())
-        updated =
-          addConstantValue(VariableDie,
-                                       DVInsn->getOperand(0).getCImm(),
-                                       DV->getType().isUnsignedDIType());
-    } else {
-      addVariableAddress(DV, VariableDie,
-                                     Asm->getDebugValueLocation(DVInsn));
+    assert(DVInsn->getNumOperands() == 3);
+    if (DVInsn->getOperand(0).isReg()) {
+      const MachineOperand RegOp = DVInsn->getOperand(0);
+      if (int64_t Offset = DVInsn->getOperand(1).getImm()) {
+        MachineLocation Location(RegOp.getReg(), Offset);
+        addVariableAddress(DV, VariableDie, Location);
+      } else if (RegOp.getReg())
+        addVariableAddress(DV, VariableDie, MachineLocation(RegOp.getReg()));
       updated = true;
-    }
+    } else if (DVInsn->getOperand(0).isImm())
+      updated =
+          addConstantValue(VariableDie, DVInsn->getOperand(0), DV->getType());
+    else if (DVInsn->getOperand(0).isFPImm())
+      updated = addConstantFPValue(VariableDie, DVInsn->getOperand(0));
+    else if (DVInsn->getOperand(0).isCImm())
+      updated = addConstantValue(VariableDie, DVInsn->getOperand(0).getCImm(),
+                                 DV->getType().isUnsignedDIType());
     if (!updated) {
       // If variableDie is not updated then DBG_VALUE instruction does not
       // have valid variable info.

@@ -26,8 +26,7 @@
 using namespace llvm;
 
 R600TargetLowering::R600TargetLowering(TargetMachine &TM) :
-    AMDGPUTargetLowering(TM),
-    TII(static_cast<const R600InstrInfo*>(TM.getInstrInfo())) {
+    AMDGPUTargetLowering(TM) {
   addRegisterClass(MVT::v4f32, &AMDGPU::R600_Reg128RegClass);
   addRegisterClass(MVT::f32, &AMDGPU::R600_Reg32RegClass);
   addRegisterClass(MVT::v4i32, &AMDGPU::R600_Reg128RegClass);
@@ -71,8 +70,6 @@ R600TargetLowering::R600TargetLowering(TargetMachine &TM) :
   setOperationAction(ISD::INTRINSIC_VOID, MVT::Other, Custom);
   setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::Other, Custom);
   setOperationAction(ISD::INTRINSIC_WO_CHAIN, MVT::i1, Custom);
-
-  setOperationAction(ISD::ROTL, MVT::i32, Custom);
 
   setOperationAction(ISD::SELECT_CC, MVT::f32, Custom);
   setOperationAction(ISD::SELECT_CC, MVT::i32, Custom);
@@ -119,6 +116,8 @@ MachineBasicBlock * R600TargetLowering::EmitInstrWithCustomInserter(
   MachineFunction * MF = BB->getParent();
   MachineRegisterInfo &MRI = MF->getRegInfo();
   MachineBasicBlock::iterator I = *MI;
+  const R600InstrInfo *TII =
+    static_cast<const R600InstrInfo*>(MF->getTarget().getInstrInfo());
 
   switch (MI->getOpcode()) {
   default: return AMDGPUTargetLowering::EmitInstrWithCustomInserter(MI, BB);
@@ -474,13 +473,9 @@ MachineBasicBlock * R600TargetLowering::EmitInstrWithCustomInserter(
 // Custom DAG Lowering Operations
 //===----------------------------------------------------------------------===//
 
-using namespace llvm::Intrinsic;
-using namespace llvm::AMDGPUIntrinsic;
-
 SDValue R600TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
   switch (Op.getOpcode()) {
   default: return AMDGPUTargetLowering::LowerOperation(Op, DAG);
-  case ISD::ROTL: return LowerROTL(Op, DAG);
   case ISD::SELECT_CC: return LowerSELECT_CC(Op, DAG);
   case ISD::SELECT: return LowerSELECT(Op, DAG);
   case ISD::STORE: return LowerSTORE(Op, DAG);
@@ -497,7 +492,7 @@ SDValue R600TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const 
       int64_t RegIndex = cast<ConstantSDNode>(Op.getOperand(3))->getZExtValue();
       unsigned Reg = AMDGPU::R600_TReg32RegClass.getRegister(RegIndex);
       MFI->LiveOuts.push_back(Reg);
-      return DAG.getCopyToReg(Chain, Op.getDebugLoc(), Reg, Op.getOperand(2));
+      return DAG.getCopyToReg(Chain, SDLoc(Op), Reg, Op.getOperand(2));
     }
     case AMDGPUIntrinsic::R600_store_swizzle: {
       const SDValue Args[8] = {
@@ -510,7 +505,7 @@ SDValue R600TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const 
         DAG.getConstant(2, MVT::i32), // SWZ_Z
         DAG.getConstant(3, MVT::i32) // SWZ_W
       };
-      return DAG.getNode(AMDGPUISD::EXPORT, Op.getDebugLoc(), Op.getValueType(),
+      return DAG.getNode(AMDGPUISD::EXPORT, SDLoc(Op), Op.getValueType(),
           Args, 8);
     }
 
@@ -524,7 +519,7 @@ SDValue R600TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const 
     unsigned IntrinsicID =
                          cast<ConstantSDNode>(Op.getOperand(0))->getZExtValue();
     EVT VT = Op.getValueType();
-    DebugLoc DL = Op.getDebugLoc();
+    SDLoc DL(Op);
     switch(IntrinsicID) {
     default: return AMDGPUTargetLowering::LowerOperation(Op, DAG);
     case AMDGPUIntrinsic::R600_load_input: {
@@ -534,7 +529,7 @@ SDValue R600TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const 
       MachineRegisterInfo &MRI = MF.getRegInfo();
       MRI.addLiveIn(Reg);
       return DAG.getCopyFromReg(DAG.getEntryNode(),
-          DAG.getEntryNode().getDebugLoc(), Reg, VT);
+          SDLoc(DAG.getEntryNode()), Reg, VT);
     }
 
     case AMDGPUIntrinsic::R600_interp_input: {
@@ -542,6 +537,9 @@ SDValue R600TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const 
       int ijb = cast<ConstantSDNode>(Op.getOperand(2))->getSExtValue();
       MachineSDNode *interp;
       if (ijb < 0) {
+        const MachineFunction &MF = DAG.getMachineFunction();
+        const R600InstrInfo *TII =
+          static_cast<const R600InstrInfo*>(MF.getTarget().getInstrInfo());
         interp = DAG.getMachineNode(AMDGPU::INTERP_VEC_LOAD, DL,
             MVT::v4f32, DAG.getTargetConstant(slot / 4 , MVT::i32));
         return DAG.getTargetExtractSubreg(
@@ -549,21 +547,25 @@ SDValue R600TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const 
             DL, MVT::f32, SDValue(interp, 0));
       }
 
+      MachineFunction &MF = DAG.getMachineFunction();
+      MachineRegisterInfo &MRI = MF.getRegInfo();
+      unsigned RegisterI = AMDGPU::R600_TReg32RegClass.getRegister(2 * ijb);
+      unsigned RegisterJ = AMDGPU::R600_TReg32RegClass.getRegister(2 * ijb + 1);
+      MRI.addLiveIn(RegisterI);
+      MRI.addLiveIn(RegisterJ);
+      SDValue RegisterINode = DAG.getCopyFromReg(DAG.getEntryNode(),
+          SDLoc(DAG.getEntryNode()), RegisterI, MVT::f32);
+      SDValue RegisterJNode = DAG.getCopyFromReg(DAG.getEntryNode(),
+          SDLoc(DAG.getEntryNode()), RegisterJ, MVT::f32);
+
       if (slot % 4 < 2)
         interp = DAG.getMachineNode(AMDGPU::INTERP_PAIR_XY, DL,
             MVT::f32, MVT::f32, DAG.getTargetConstant(slot / 4 , MVT::i32),
-            CreateLiveInRegister(DAG, &AMDGPU::R600_TReg32RegClass,
-                AMDGPU::R600_TReg32RegClass.getRegister(2 * ijb + 1), MVT::f32),
-            CreateLiveInRegister(DAG, &AMDGPU::R600_TReg32RegClass,
-                AMDGPU::R600_TReg32RegClass.getRegister(2 * ijb), MVT::f32));
+            RegisterJNode, RegisterINode);
       else
         interp = DAG.getMachineNode(AMDGPU::INTERP_PAIR_ZW, DL,
             MVT::f32, MVT::f32, DAG.getTargetConstant(slot / 4 , MVT::i32),
-            CreateLiveInRegister(DAG, &AMDGPU::R600_TReg32RegClass,
-                AMDGPU::R600_TReg32RegClass.getRegister(2 * ijb + 1), MVT::f32),
-            CreateLiveInRegister(DAG, &AMDGPU::R600_TReg32RegClass,
-                AMDGPU::R600_TReg32RegClass.getRegister(2 * ijb), MVT::f32));
-
+            RegisterJNode, RegisterINode);
       return SDValue(interp, slot % 2);
     }
     case AMDGPUIntrinsic::R600_tex:
@@ -657,41 +659,41 @@ SDValue R600TargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const 
       return DAG.getNode(AMDGPUISD::DOT4, DL, MVT::f32, Args, 8);
     }
 
-    case r600_read_ngroups_x:
+    case Intrinsic::r600_read_ngroups_x:
       return LowerImplicitParameter(DAG, VT, DL, 0);
-    case r600_read_ngroups_y:
+    case Intrinsic::r600_read_ngroups_y:
       return LowerImplicitParameter(DAG, VT, DL, 1);
-    case r600_read_ngroups_z:
+    case Intrinsic::r600_read_ngroups_z:
       return LowerImplicitParameter(DAG, VT, DL, 2);
-    case r600_read_global_size_x:
+    case Intrinsic::r600_read_global_size_x:
       return LowerImplicitParameter(DAG, VT, DL, 3);
-    case r600_read_global_size_y:
+    case Intrinsic::r600_read_global_size_y:
       return LowerImplicitParameter(DAG, VT, DL, 4);
-    case r600_read_global_size_z:
+    case Intrinsic::r600_read_global_size_z:
       return LowerImplicitParameter(DAG, VT, DL, 5);
-    case r600_read_local_size_x:
+    case Intrinsic::r600_read_local_size_x:
       return LowerImplicitParameter(DAG, VT, DL, 6);
-    case r600_read_local_size_y:
+    case Intrinsic::r600_read_local_size_y:
       return LowerImplicitParameter(DAG, VT, DL, 7);
-    case r600_read_local_size_z:
+    case Intrinsic::r600_read_local_size_z:
       return LowerImplicitParameter(DAG, VT, DL, 8);
 
-    case r600_read_tgid_x:
+    case Intrinsic::r600_read_tgid_x:
       return CreateLiveInRegister(DAG, &AMDGPU::R600_TReg32RegClass,
                                   AMDGPU::T1_X, VT);
-    case r600_read_tgid_y:
+    case Intrinsic::r600_read_tgid_y:
       return CreateLiveInRegister(DAG, &AMDGPU::R600_TReg32RegClass,
                                   AMDGPU::T1_Y, VT);
-    case r600_read_tgid_z:
+    case Intrinsic::r600_read_tgid_z:
       return CreateLiveInRegister(DAG, &AMDGPU::R600_TReg32RegClass,
                                   AMDGPU::T1_Z, VT);
-    case r600_read_tidig_x:
+    case Intrinsic::r600_read_tidig_x:
       return CreateLiveInRegister(DAG, &AMDGPU::R600_TReg32RegClass,
                                   AMDGPU::T0_X, VT);
-    case r600_read_tidig_y:
+    case Intrinsic::r600_read_tidig_y:
       return CreateLiveInRegister(DAG, &AMDGPU::R600_TReg32RegClass,
                                   AMDGPU::T0_Y, VT);
-    case r600_read_tidig_z:
+    case Intrinsic::r600_read_tidig_z:
       return CreateLiveInRegister(DAG, &AMDGPU::R600_TReg32RegClass,
                                   AMDGPU::T0_Z, VT);
     }
@@ -728,7 +730,7 @@ void R600TargetLowering::ReplaceNodeResults(SDNode *N,
 SDValue R600TargetLowering::LowerFPTOUINT(SDValue Op, SelectionDAG &DAG) const {
   return DAG.getNode(
       ISD::SETCC,
-      Op.getDebugLoc(),
+      SDLoc(Op),
       MVT::i1,
       Op, DAG.getConstantFP(0.0f, MVT::f32),
       DAG.getCondCode(ISD::SETNE)
@@ -736,7 +738,7 @@ SDValue R600TargetLowering::LowerFPTOUINT(SDValue Op, SelectionDAG &DAG) const {
 }
 
 SDValue R600TargetLowering::LowerImplicitParameter(SelectionDAG &DAG, EVT VT,
-                                                   DebugLoc DL,
+                                                   SDLoc DL,
                                                    unsigned DwordOffset) const {
   unsigned ByteOffset = DwordOffset * 4;
   PointerType * PtrType = PointerType::get(VT.getTypeForEVT(*DAG.getContext()),
@@ -765,18 +767,6 @@ SDValue R600TargetLowering::LowerFrameIndex(SDValue Op, SelectionDAG &DAG) const
   return DAG.getConstant(Offset * 4 * TFL->getStackWidth(MF), MVT::i32);
 }
 
-SDValue R600TargetLowering::LowerROTL(SDValue Op, SelectionDAG &DAG) const {
-  DebugLoc DL = Op.getDebugLoc();
-  EVT VT = Op.getValueType();
-
-  return DAG.getNode(AMDGPUISD::BITALIGN, DL, VT,
-                     Op.getOperand(0),
-                     Op.getOperand(0),
-                     DAG.getNode(ISD::SUB, DL, VT,
-                                 DAG.getConstant(32, MVT::i32),
-                                 Op.getOperand(1)));
-}
-
 bool R600TargetLowering::isZero(SDValue Op) const {
   if(ConstantSDNode *Cst = dyn_cast<ConstantSDNode>(Op)) {
     return Cst->isNullValue();
@@ -788,7 +778,7 @@ bool R600TargetLowering::isZero(SDValue Op) const {
 }
 
 SDValue R600TargetLowering::LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const {
-  DebugLoc DL = Op.getDebugLoc();
+  SDLoc DL(Op);
   EVT VT = Op.getValueType();
 
   SDValue LHS = Op.getOperand(0);
@@ -909,7 +899,7 @@ SDValue R600TargetLowering::LowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const 
 
 SDValue R600TargetLowering::LowerSELECT(SDValue Op, SelectionDAG &DAG) const {
   return DAG.getNode(ISD::SELECT_CC,
-      Op.getDebugLoc(),
+      SDLoc(Op),
       Op.getValueType(),
       Op.getOperand(0),
       DAG.getConstant(0, MVT::i32),
@@ -940,7 +930,7 @@ SDValue R600TargetLowering::stackPtrToRegIndex(SDValue Ptr,
   default: llvm_unreachable("Invalid stack width");
   }
 
-  return DAG.getNode(ISD::SRL, Ptr.getDebugLoc(), Ptr.getValueType(), Ptr,
+  return DAG.getNode(ISD::SRL, SDLoc(Ptr), Ptr.getValueType(), Ptr,
                      DAG.getConstant(SRLPad, MVT::i32));
 }
 
@@ -974,7 +964,7 @@ void R600TargetLowering::getStackAddress(unsigned StackWidth,
 }
 
 SDValue R600TargetLowering::LowerSTORE(SDValue Op, SelectionDAG &DAG) const {
-  DebugLoc DL = Op.getDebugLoc();
+  SDLoc DL(Op);
   StoreSDNode *StoreNode = cast<StoreSDNode>(Op);
   SDValue Chain = Op.getOperand(0);
   SDValue Value = Op.getOperand(1);
@@ -1036,7 +1026,7 @@ SDValue R600TargetLowering::LowerSTORE(SDValue Op, SelectionDAG &DAG) const {
       Value = DAG.getNode(ISD::ZERO_EXTEND, DL, MVT::i32, Value);
     }
     Chain = DAG.getNode(AMDGPUISD::REGISTER_STORE, DL, MVT::Other, Chain, Value, Ptr,
-    DAG.getTargetConstant(0, MVT::i32)); // Channel 
+    DAG.getTargetConstant(0, MVT::i32)); // Channel
   }
 
   return Chain;
@@ -1086,7 +1076,7 @@ ConstantAddressBlock(unsigned AddressSpace) {
 SDValue R600TargetLowering::LowerLOAD(SDValue Op, SelectionDAG &DAG) const
 {
   EVT VT = Op.getValueType();
-  DebugLoc DL = Op.getDebugLoc();
+  SDLoc DL(Op);
   LoadSDNode *LoadNode = cast<LoadSDNode>(Op);
   SDValue Chain = Op.getOperand(0);
   SDValue Ptr = Op.getOperand(1);
@@ -1115,7 +1105,7 @@ SDValue R600TargetLowering::LowerLOAD(SDValue Op, SelectionDAG &DAG) const
       Result = DAG.getNode(AMDGPUISD::CONST_ADDRESS, DL, MVT::v4i32,
           DAG.getNode(ISD::SRL, DL, MVT::i32, Ptr, DAG.getConstant(4, MVT::i32)),
           DAG.getConstant(LoadNode->getAddressSpace() -
-	                  AMDGPUAS::CONSTANT_BUFFER_0, MVT::i32)
+                          AMDGPUAS::CONSTANT_BUFFER_0, MVT::i32)
           );
     }
 
@@ -1188,7 +1178,7 @@ SDValue R600TargetLowering::LowerFormalArguments(
                                       CallingConv::ID CallConv,
                                       bool isVarArg,
                                       const SmallVectorImpl<ISD::InputArg> &Ins,
-                                      DebugLoc DL, SelectionDAG &DAG,
+                                      SDLoc DL, SelectionDAG &DAG,
                                       SmallVectorImpl<SDValue> &InVals) const {
   unsigned ParamOffsetBytes = 36;
   Function::const_arg_iterator FuncArg =
@@ -1224,6 +1214,100 @@ EVT R600TargetLowering::getSetCCResultType(LLVMContext &, EVT VT) const {
    return VT.changeVectorElementTypeToInteger();
 }
 
+static SDValue
+CompactSwizzlableVector(SelectionDAG &DAG, SDValue VectorEntry,
+                        DenseMap<unsigned, unsigned> &RemapSwizzle) {
+  assert(VectorEntry.getOpcode() == ISD::BUILD_VECTOR);
+  assert(RemapSwizzle.empty());
+  SDValue NewBldVec[4] = {
+      VectorEntry.getOperand(0),
+      VectorEntry.getOperand(1),
+      VectorEntry.getOperand(2),
+      VectorEntry.getOperand(3)
+  };
+
+  for (unsigned i = 0; i < 4; i++) {
+    if (ConstantFPSDNode *C = dyn_cast<ConstantFPSDNode>(NewBldVec[i])) {
+      if (C->isZero()) {
+        RemapSwizzle[i] = 4; // SEL_0
+        NewBldVec[i] = DAG.getUNDEF(MVT::f32);
+      } else if (C->isExactlyValue(1.0)) {
+        RemapSwizzle[i] = 5; // SEL_1
+        NewBldVec[i] = DAG.getUNDEF(MVT::f32);
+      }
+    }
+
+    if (NewBldVec[i].getOpcode() == ISD::UNDEF)
+      continue;
+    for (unsigned j = 0; j < i; j++) {
+      if (NewBldVec[i] == NewBldVec[j]) {
+        NewBldVec[i] = DAG.getUNDEF(NewBldVec[i].getValueType());
+        RemapSwizzle[i] = j;
+        break;
+      }
+    }
+  }
+
+  return DAG.getNode(ISD::BUILD_VECTOR, SDLoc(VectorEntry),
+      VectorEntry.getValueType(), NewBldVec, 4);
+}
+
+static SDValue ReorganizeVector(SelectionDAG &DAG, SDValue VectorEntry,
+                                DenseMap<unsigned, unsigned> &RemapSwizzle) {
+  assert(VectorEntry.getOpcode() == ISD::BUILD_VECTOR);
+  assert(RemapSwizzle.empty());
+  SDValue NewBldVec[4] = {
+      VectorEntry.getOperand(0),
+      VectorEntry.getOperand(1),
+      VectorEntry.getOperand(2),
+      VectorEntry.getOperand(3)
+  };
+  bool isUnmovable[4] = { false, false, false, false };
+
+  for (unsigned i = 0; i < 4; i++) {
+    if (NewBldVec[i].getOpcode() == ISD::EXTRACT_VECTOR_ELT) {
+      unsigned Idx = dyn_cast<ConstantSDNode>(NewBldVec[i].getOperand(1))
+          ->getZExtValue();
+      if (!isUnmovable[Idx]) {
+        // Swap i and Idx
+        std::swap(NewBldVec[Idx], NewBldVec[i]);
+        RemapSwizzle[Idx] = i;
+        RemapSwizzle[i] = Idx;
+      }
+      isUnmovable[Idx] = true;
+    }
+  }
+
+  return DAG.getNode(ISD::BUILD_VECTOR, SDLoc(VectorEntry),
+      VectorEntry.getValueType(), NewBldVec, 4);
+}
+
+
+SDValue R600TargetLowering::OptimizeSwizzle(SDValue BuildVector,
+SDValue Swz[4], SelectionDAG &DAG) const {
+  assert(BuildVector.getOpcode() == ISD::BUILD_VECTOR);
+  // Old -> New swizzle values
+  DenseMap<unsigned, unsigned> SwizzleRemap;
+
+  BuildVector = CompactSwizzlableVector(DAG, BuildVector, SwizzleRemap);
+  for (unsigned i = 0; i < 4; i++) {
+    unsigned Idx = dyn_cast<ConstantSDNode>(Swz[i])->getZExtValue();
+    if (SwizzleRemap.find(Idx) != SwizzleRemap.end())
+      Swz[i] = DAG.getConstant(SwizzleRemap[Idx], MVT::i32);
+  }
+
+  SwizzleRemap.clear();
+  BuildVector = ReorganizeVector(DAG, BuildVector, SwizzleRemap);
+  for (unsigned i = 0; i < 4; i++) {
+    unsigned Idx = dyn_cast<ConstantSDNode>(Swz[i])->getZExtValue();
+    if (SwizzleRemap.find(Idx) != SwizzleRemap.end())
+      Swz[i] = DAG.getConstant(SwizzleRemap[Idx], MVT::i32);
+  }
+
+  return BuildVector;
+}
+
+
 //===----------------------------------------------------------------------===//
 // Custom DAG Optimizations
 //===----------------------------------------------------------------------===//
@@ -1237,7 +1321,7 @@ SDValue R600TargetLowering::PerformDAGCombine(SDNode *N,
   case ISD::FP_ROUND: {
       SDValue Arg = N->getOperand(0);
       if (Arg.getOpcode() == ISD::UINT_TO_FP && Arg.getValueType() == MVT::f64) {
-        return DAG.getNode(ISD::UINT_TO_FP, N->getDebugLoc(), N->getValueType(0),
+        return DAG.getNode(ISD::UINT_TO_FP, SDLoc(N), N->getValueType(0),
                            Arg.getOperand(0));
       }
       break;
@@ -1262,7 +1346,7 @@ SDValue R600TargetLowering::PerformDAGCombine(SDNode *N,
       return SDValue();
     }
 
-    return DAG.getNode(ISD::SELECT_CC, N->getDebugLoc(), N->getValueType(0),
+    return DAG.getNode(ISD::SELECT_CC, SDLoc(N), N->getValueType(0),
                            SelectCC.getOperand(0), // LHS
                            SelectCC.getOperand(1), // RHS
                            DAG.getConstant(-1, MVT::i32), // True
@@ -1285,7 +1369,7 @@ SDValue R600TargetLowering::PerformDAGCombine(SDNode *N,
         Arg.getOperand(0).getOpcode() == ISD::BUILD_VECTOR) {
       if (ConstantSDNode *Const = dyn_cast<ConstantSDNode>(N->getOperand(1))) {
         unsigned Element = Const->getZExtValue();
-        return DAG.getNode(ISD::BITCAST, N->getDebugLoc(), N->getVTList(),
+        return DAG.getNode(ISD::BITCAST, SDLoc(N), N->getVTList(),
             Arg->getOperand(0).getOperand(Element));
       }
     }
@@ -1320,7 +1404,7 @@ SDValue R600TargetLowering::PerformDAGCombine(SDNode *N,
       ISD::CondCode LHSCC = cast<CondCodeSDNode>(LHS.getOperand(4))->get();
       LHSCC = ISD::getSetCCInverse(LHSCC,
                                   LHS.getOperand(0).getValueType().isInteger());
-      return DAG.getSelectCC(N->getDebugLoc(),
+      return DAG.getSelectCC(SDLoc(N),
                              LHS.getOperand(0),
                              LHS.getOperand(1),
                              LHS.getOperand(2),
@@ -1333,12 +1417,7 @@ SDValue R600TargetLowering::PerformDAGCombine(SDNode *N,
     SDValue Arg = N->getOperand(1);
     if (Arg.getOpcode() != ISD::BUILD_VECTOR)
       break;
-    SDValue NewBldVec[4] = {
-        DAG.getUNDEF(MVT::f32),
-        DAG.getUNDEF(MVT::f32),
-        DAG.getUNDEF(MVT::f32),
-        DAG.getUNDEF(MVT::f32)
-      };
+
     SDValue NewArgs[8] = {
       N->getOperand(0), // Chain
       SDValue(),
@@ -1349,22 +1428,39 @@ SDValue R600TargetLowering::PerformDAGCombine(SDNode *N,
       N->getOperand(6), // SWZ_Z
       N->getOperand(7) // SWZ_W
     };
-    for (unsigned i = 0; i < Arg.getNumOperands(); i++) {
-      if (ConstantFPSDNode *C = dyn_cast<ConstantFPSDNode>(Arg.getOperand(i))) {
-        if (C->isZero()) {
-          NewArgs[4 + i] = DAG.getConstant(4, MVT::i32); // SEL_0
-        } else if (C->isExactlyValue(1.0)) {
-          NewArgs[4 + i] = DAG.getConstant(5, MVT::i32); // SEL_0
-        } else {
-          NewBldVec[i] = Arg.getOperand(i);
-        }
-      } else {
-        NewBldVec[i] = Arg.getOperand(i);
-      }
-    }
-    DebugLoc DL = N->getDebugLoc();
-    NewArgs[1] = DAG.getNode(ISD::BUILD_VECTOR, DL, MVT::v4f32, NewBldVec, 4);
+    SDLoc DL(N);
+    NewArgs[1] = OptimizeSwizzle(N->getOperand(1), &NewArgs[4], DAG);
     return DAG.getNode(AMDGPUISD::EXPORT, DL, N->getVTList(), NewArgs, 8);
+  }
+  case AMDGPUISD::TEXTURE_FETCH: {
+    SDValue Arg = N->getOperand(1);
+    if (Arg.getOpcode() != ISD::BUILD_VECTOR)
+      break;
+
+    SDValue NewArgs[19] = {
+      N->getOperand(0),
+      N->getOperand(1),
+      N->getOperand(2),
+      N->getOperand(3),
+      N->getOperand(4),
+      N->getOperand(5),
+      N->getOperand(6),
+      N->getOperand(7),
+      N->getOperand(8),
+      N->getOperand(9),
+      N->getOperand(10),
+      N->getOperand(11),
+      N->getOperand(12),
+      N->getOperand(13),
+      N->getOperand(14),
+      N->getOperand(15),
+      N->getOperand(16),
+      N->getOperand(17),
+      N->getOperand(18),
+    };
+    NewArgs[1] = OptimizeSwizzle(N->getOperand(1), &NewArgs[2], DAG);
+    return DAG.getNode(AMDGPUISD::TEXTURE_FETCH, SDLoc(N), N->getVTList(),
+        NewArgs, 19);
   }
   }
   return SDValue();

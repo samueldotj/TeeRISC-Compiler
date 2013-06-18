@@ -263,8 +263,10 @@ bool DAE::DeleteDeadVarargs(Function &Fn) {
   // to pass in a smaller number of arguments into the new function.
   //
   std::vector<Value*> Args;
-  while (!Fn.use_empty()) {
-    CallSite CS(Fn.use_back());
+  for (Value::use_iterator I = Fn.use_begin(), E = Fn.use_end(); I != E; ) {
+    CallSite CS(*I++);
+    if (!CS)
+      continue;
     Instruction *Call = CS.getInstruction();
 
     // Pass all the same arguments.
@@ -330,6 +332,11 @@ bool DAE::DeleteDeadVarargs(Function &Fn) {
   if (DI != FunctionDIs.end())
     DI->second.replaceFunction(NF);
 
+  // Fix up any BlockAddresses that refer to the function.
+  Fn.replaceAllUsesWith(ConstantExpr::getBitCast(NF, Fn.getType()));
+  // Delete the bitcast that we just created, so that NF does not
+  // appear to be address-taken.
+  NF->removeDeadConstantUsers();
   // Finally, nuke the old function.
   Fn.eraseFromParent();
   return true;
@@ -343,8 +350,9 @@ bool DAE::RemoveDeadArgumentsFromCallers(Function &Fn)
   if (Fn.isDeclaration() || Fn.mayBeOverridden())
     return false;
 
-  // Functions with local linkage should already have been handled.
-  if (Fn.hasLocalLinkage())
+  // Functions with local linkage should already have been handled, except the
+  // fragile (variadic) ones which we can improve here.
+  if (Fn.hasLocalLinkage() && !Fn.getFunctionType()->isVarArg())
     return false;
 
   if (Fn.use_empty())
@@ -604,9 +612,20 @@ void DAE::SurveyFunction(const Function &F) {
   UseVector MaybeLiveArgUses;
   for (Function::const_arg_iterator AI = F.arg_begin(),
        E = F.arg_end(); AI != E; ++AI, ++i) {
-    // See what the effect of this use is (recording any uses that cause
-    // MaybeLive in MaybeLiveArgUses).
-    Liveness Result = SurveyUses(AI, MaybeLiveArgUses);
+    Liveness Result;
+    if (F.getFunctionType()->isVarArg()) {
+      // Variadic functions will already have a va_arg function expanded inside
+      // them, making them potentially very sensitive to ABI changes resulting
+      // from removing arguments entirely, so don't. For example AArch64 handles
+      // register and stack HFAs very differently, and this is reflected in the
+      // IR which has already been generated.
+      Result = Live;
+    } else {
+      // See what the effect of this use is (recording any uses that cause
+      // MaybeLive in MaybeLiveArgUses). 
+      Result = SurveyUses(AI, MaybeLiveArgUses);
+    }
+
     // Mark the result.
     MarkValue(CreateArg(&F, i), Result, MaybeLiveArgUses);
     // Clear the vector again for the next iteration.

@@ -42,6 +42,7 @@
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/Timer.h"
 #include "llvm/Target/Mangler.h"
+#include "llvm/Target/TargetFrameLowering.h"
 #include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/Target/TargetLowering.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
@@ -163,7 +164,7 @@ bool AsmPrinter::doInitialization(Module &M) {
   const_cast<TargetLoweringObjectFile&>(getObjFileLowering())
     .Initialize(OutContext, TM);
 
-  Mang = new Mangler(OutContext, *TM.getDataLayout());
+  Mang = new Mangler(OutContext, &TM);
 
   // Allow the target to emit any magic that it wants at the start of the file.
   EmitStartOfAsmFile(M);
@@ -562,10 +563,15 @@ static bool emitDebugValueComment(const MachineInstr *MI, AsmPrinter &AP) {
 
   // cast away const; DIetc do not take const operands for some reason.
   DIVariable V(const_cast<MDNode*>(MI->getOperand(2).getMetadata()));
-  if (V.getContext().isSubprogram())
-    OS << DISubprogram(V.getContext()).getDisplayName() << ":";
+  if (V.getContext().isSubprogram()) {
+    StringRef Name = DISubprogram(V.getContext()).getDisplayName();
+    if (!Name.empty())
+      OS << Name << ":";
+  }
   OS << V.getName() << " <- ";
 
+  int64_t Offset = MI->getOperand(1).getImm();
+  bool Deref = false;
   // Register or immediate value. Register 0 means undef.
   if (MI->getOperand(0).isFPImm()) {
     APFloat APF = APFloat(MI->getOperand(0).getFPImm()->getValueAPF());
@@ -586,18 +592,33 @@ static bool emitDebugValueComment(const MachineInstr *MI, AsmPrinter &AP) {
   } else if (MI->getOperand(0).isCImm()) {
     MI->getOperand(0).getCImm()->getValue().print(OS, false /*isSigned*/);
   } else {
-    assert(MI->getOperand(0).isReg() && "Unknown operand type");
-    if (MI->getOperand(0).getReg() == 0) {
+    unsigned Reg;
+    if (MI->getOperand(0).isReg()) {
+      Reg = MI->getOperand(0).getReg();
+      Deref = Offset != 0; // FIXME: use a better sentinel value so that deref
+                           // of a reg with a zero offset is valid
+    } else {
+      assert(MI->getOperand(0).isFI() && "Unknown operand type");
+      const TargetFrameLowering *TFI = AP.TM.getFrameLowering();
+      Offset += TFI->getFrameIndexReference(*AP.MF, MI->getOperand(0).getIndex(), Reg);
+      Deref = true;
+    }
+    if (Reg == 0) {
       // Suppress offset, it is not meaningful here.
       OS << "undef";
       // NOTE: Want this comment at start of line, don't emit with AddComment.
       AP.OutStreamer.EmitRawText(OS.str());
       return true;
     }
-    OS << AP.TM.getRegisterInfo()->getName(MI->getOperand(0).getReg());
+    if (Deref)
+      OS << '[';
+    OS << AP.TM.getRegisterInfo()->getName(Reg);
   }
 
-  OS << '+' << MI->getOperand(1).getImm();
+  if (Offset)
+    OS << '+' << Offset;
+  if (Deref)
+    OS << ']';
   // NOTE: Want this comment at start of line, don't emit with AddComment.
   AP.OutStreamer.EmitRawText(OS.str());
   return true;
@@ -788,14 +809,6 @@ void AsmPrinter::EmitFunctionBody() {
   EmitJumpTableInfo();
 
   OutStreamer.AddBlankLine();
-}
-
-/// getDebugValueLocation - Get location information encoded by DBG_VALUE
-/// operands.
-MachineLocation AsmPrinter::
-getDebugValueLocation(const MachineInstr *MI) const {
-  // Target specific DBG_VALUE instructions are handled by each target.
-  return MachineLocation();
 }
 
 /// EmitDwarfRegOp - Emit dwarf register operation.
@@ -1795,15 +1808,56 @@ static void emitGlobalConstantLargeInt(const ConstantInt *CI,
                                        unsigned AddrSpace, AsmPrinter &AP) {
   const DataLayout *TD = AP.TM.getDataLayout();
   unsigned BitWidth = CI->getBitWidth();
-  assert((BitWidth & 63) == 0 && "only support multiples of 64-bits");
+
+  // Copy the value as we may massage the layout for constants whose bit width
+  // is not a multiple of 64-bits.
+  APInt Realigned(CI->getValue());
+  uint64_t ExtraBits = 0;
+  unsigned ExtraBitsSize = BitWidth & 63;
+
+  if (ExtraBitsSize) {
+    // The bit width of the data is not a multiple of 64-bits.
+    // The extra bits are expected to be at the end of the chunk of the memory.
+    // Little endian:
+    // * Nothing to be done, just record the extra bits to emit.
+    // Big endian:
+    // * Record the extra bits to emit.
+    // * Realign the raw data to emit the chunks of 64-bits.
+    if (TD->isBigEndian()) {
+      // Basically the structure of the raw data is a chunk of 64-bits cells:
+      //    0        1         BitWidth / 64
+      // [chunk1][chunk2] ... [chunkN].
+      // The most significant chunk is chunkN and it should be emitted first.
+      // However, due to the alignment issue chunkN contains useless bits.
+      // Realign the chunks so that they contain only useless information:
+      // ExtraBits     0       1       (BitWidth / 64) - 1
+      //       chu[nk1 chu][nk2 chu] ... [nkN-1 chunkN]
+      ExtraBits = Realigned.getRawData()[0] &
+        (((uint64_t)-1) >> (64 - ExtraBitsSize));
+      Realigned = Realigned.lshr(ExtraBitsSize);
+    } else
+      ExtraBits = Realigned.getRawData()[BitWidth / 64];
+  }
 
   // We don't expect assemblers to support integer data directives
   // for more than 64 bits, so we emit the data in at most 64-bit
   // quantities at a time.
-  const uint64_t *RawData = CI->getValue().getRawData();
+  const uint64_t *RawData = Realigned.getRawData();
   for (unsigned i = 0, e = BitWidth / 64; i != e; ++i) {
     uint64_t Val = TD->isBigEndian() ? RawData[e - i - 1] : RawData[i];
     AP.OutStreamer.EmitIntValue(Val, 8, AddrSpace);
+  }
+
+  if (ExtraBitsSize) {
+    // Emit the extra bits after the 64-bits chunks.
+
+    // Emit a directive that fills the expected size.
+    uint64_t Size = AP.TM.getDataLayout()->getTypeAllocSize(CI->getType());
+    Size -= (BitWidth / 64) * 8;
+    assert(Size && Size * 8 >= ExtraBitsSize &&
+           (ExtraBits & (((uint64_t)-1) >> (64 - ExtraBitsSize)))
+           == ExtraBits && "Directive too small for extra bits.");
+    AP.OutStreamer.EmitIntValue(ExtraBits, Size, AddrSpace);
   }
 }
 

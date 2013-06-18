@@ -371,3 +371,11 @@
 @ CHECK-ERRORS: error: invalid operand for instruction
 @ CHECK-ERRORS:         msr foo, #0
 @ CHECK-ERRORS:             ^
+
+        isb #-1
+        isb #16
+@ CHECK-ERRORS: error: immediate value out of range
+@ CHECK-ERRORS: error: immediate value out of range
+
+        nop.n
+@ CHECK-ERRORS: error: instruction with .n (narrow) qualifier not allowed in arm mode
