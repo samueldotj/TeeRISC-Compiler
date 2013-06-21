@@ -58,9 +58,9 @@ TeeRISCTargetLowering::LowerFormalArguments(SDValue Chain,
                                             CallingConv::ID CallConv,
                                             bool isVarArg,
                                             const SmallVectorImpl<ISD::InputArg> &Ins,
-                                            DebugLoc dl, SelectionDAG &DAG,
+                                            SDLoc dl, SelectionDAG &DAG,
                                             SmallVectorImpl<SDValue> &InVals) const {
-    return Chain;
+  return Chain;
 }
 
 //===----------------------------------------------------------------------===//
@@ -72,9 +72,53 @@ TeeRISCTargetLowering::LowerReturn(SDValue Chain,
                                    CallingConv::ID CallConv, bool isVarArg,
                                    const SmallVectorImpl<ISD::OutputArg> &Outs,
                                    const SmallVectorImpl<SDValue> &OutVals,
-                                   DebugLoc dl, SelectionDAG &DAG) const {
+                                   SDLoc dl, SelectionDAG &DAG) const {
+  // CCValAssign - represent the assignment of
+  // the return value to a location
+  SmallVector<CCValAssign, 16> RVLocs;
+  MachineFunction &MF = DAG.getMachineFunction();
 
-    return DAG.getNode(TeeRISC::LD, dl, MVT::Other,
-                       Chain, DAG.getRegister(TeeRISC::LR, MVT::i32));
+  // CCState - Info about the registers and stack slot.
+  CCState CCInfo(CallConv, isVarArg, MF, getTargetMachine(), RVLocs,
+                 *DAG.getContext());
+
+  // Analyze return values.
+  CCInfo.AnalyzeReturn(Outs, CC_Ret_TeeRISC);
+
+  SDValue Flag;
+  SmallVector<SDValue, 4> RetOps(1, Chain);
+
+  RetOps.push_back(DAG.getRegister(TeeRISC::R1, MVT::i32));
+
+  // Copy the result values into the output registers.
+  for (unsigned i = 0; i != RVLocs.size(); ++i) {
+    SDValue Val = OutVals[i];
+    CCValAssign &VA = RVLocs[i];
+    assert(VA.isRegLoc() && "Can only return in registers!");
+
+    if (RVLocs[i].getValVT() != RVLocs[i].getLocVT())
+      Val = DAG.getNode(ISD::BITCAST, dl, RVLocs[i].getLocVT(), Val);
+
+    Chain = DAG.getCopyToReg(Chain, dl, VA.getLocReg(), Val, Flag);
+
+    // Guarantee that all emitted copies are stuck together with flags.
+    Flag = Chain.getValue(1);
+    RetOps.push_back(DAG.getRegister(VA.getLocReg(), VA.getLocVT()));
+  }
+
+  RetOps[0] = Chain;  // Update chain.
+
+  // Add the flag if we have it.
+  if (Flag.getNode())
+    RetOps.push_back(Flag);
+
+  return DAG.getNode(TeeRISC::RET, dl, MVT::Other, &RetOps[0], RetOps.size());
+}
+
+/// LowerOperation - Handle custom opcodes
+SDValue
+TeeRISCTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
+
+  return SDValue();
 }
 

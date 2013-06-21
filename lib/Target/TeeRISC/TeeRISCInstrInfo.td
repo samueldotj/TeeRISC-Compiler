@@ -17,25 +17,19 @@
 
 include "TeeRISCInstrFormats.td"
 
-//  These are target-independent nodes, but have target-specific formats.
-def SDT_SPCallSeqStart : SDCallSeqStart<[ SDTCisVT<0, i32> ]>;
-def SDT_SPCallSeqEnd   : SDCallSeqEnd<[ SDTCisVT<0, i32>,
-                                        SDTCisVT<1, i32> ]>;
+def simm16  : PatLeaf<(imm), [{ return isInt<16>(N->getSExtValue()); }]>;
+def imm16   : PatLeaf<(imm), [{ return isUInt<16>(N->getSExtValue()); }]>;
 
-def callseq_start : SDNode<"ISD::CALLSEQ_START", SDT_SPCallSeqStart,
-                           [SDNPHasChain, SDNPOutGlue]>;
-def callseq_end   : SDNode<"ISD::CALLSEQ_END",   SDT_SPCallSeqEnd,
-                           [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
 
-def SDT_SPCall    : SDTypeProfile<0, -1, [SDTCisVT<0, i32>]>;
-def call          : SDNode<"TeeRISC_ISD::CALL", SDT_SPCall,
-                           [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue,
-                            SDNPVariadic]>;
+def SDT_TeeRISCCall : SDTypeProfile<0, -1, [SDTCisVT<0, i32>]>;
+def call            : SDNode<"TeeRISC_ISD::CALL", SDT_TeeRISCCall,
+                            [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue,
+                             SDNPVariadic]>;
 
-def SDT_SPRet     : SDTypeProfile<0, 1, [SDTCisVT<0, i32>]>;
-def retflag       : SDNode<"TeeRISC_ISD::RET", SDT_SPRet,
-                           [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
-
+def SDT_TeeRISCRet  : SDTypeProfile<0, 1, [SDTCisInt<0>]>;
+def TeeRISCRET      : SDNode<"TeeRISC_ISD::RET", SDT_TeeRISCRet,
+                            [SDNPHasChain, SDNPOptInGlue]>;
+ 
 // Pseudo instructions.
 class Pseudo<dag outs, dag ins, string asmstr, list<dag> pattern>
    : TeeRISCInst<outs, ins, asmstr, pattern, FormP>;
@@ -49,6 +43,10 @@ def OR:     F1<7, (outs IntRegs:$dst), (ins IntRegs:$b, IntRegs:$c),
                 "$dst = $b | $c", 
                 [(set i32:$dst, (or i32:$b, i32:$c))]>;
 
+def OR_IMM: F1<12, (outs IntRegs:$dst), (ins i32imm:$b), 
+                "$dst = $b", 
+                [(set i32:$dst, (ld imm16:$b))]>;
+
 def LD:     F3<16, (outs IntRegs:$dst), (ins IntRegs:$b), 
                 "$dst = *(uint32_t *) $b", 
                 [(set i32:$dst, (load i32:$b))]>;
@@ -60,4 +58,10 @@ def ST:     F3<17, (outs), (ins IntRegs:$dst, IntRegs:$b),
 def CALL:   F1<19, (outs), (ins IntRegs:$dst), 
                 "$dst()", 
                 [(call i32:$dst)]>;
+
+let isReturn=1, isTerminator=1, hasDelaySlot=1, isCodeGenOnly=1,
+    isBarrier=1, hasCtrlDep=1 in
+  def RET:  Pseudo<(outs), (ins IntRegs:$dst),
+                  "return $dst",
+                  [(TeeRISCRET IntRegs:$dst)]>;
 

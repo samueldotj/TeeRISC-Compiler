@@ -26,7 +26,8 @@ namespace llvm {
       // Start the numbering from where ISD NodeType finishes.
       FIRST_NUMBER = ISD::BUILTIN_OP_END,
       CALL,             // A call instruction.
-      RET               // A return instruction
+      RET,              // A return instruction
+      GLOBAL_BASE_REG   // Global base reg for PIC
     };
   }
 
@@ -45,7 +46,7 @@ namespace llvm {
       LowerFormalArguments(SDValue Chain,
                            CallingConv::ID CallConv, bool isVarArg,
                            const SmallVectorImpl<ISD::InputArg> &Ins,
-                           DebugLoc dl, SelectionDAG &DAG,
+                           SDLoc dl, SelectionDAG &DAG,
                            SmallVectorImpl<SDValue> &InVals) const;
 
 	//- must be exist without function all
@@ -54,7 +55,9 @@ namespace llvm {
                   CallingConv::ID CallConv, bool isVarArg,
                   const SmallVectorImpl<ISD::OutputArg> &Outs,
                   const SmallVectorImpl<SDValue> &OutVals,
-                  DebugLoc dl, SelectionDAG &DAG) const;
+                  SDLoc dl, SelectionDAG &DAG) const;
+    virtual SDValue 
+      LowerOperation(SDValue Op, SelectionDAG &DAG) const;
   };
 }
 

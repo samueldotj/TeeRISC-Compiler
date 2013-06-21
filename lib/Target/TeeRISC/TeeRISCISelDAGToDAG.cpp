@@ -66,7 +66,7 @@ private:
 
 SDNode* TeeRISCDAGToDAGISel::getGlobalBaseReg() {
   unsigned GlobalBaseReg = TM.getInstrInfo()->getGlobalBaseReg(MF);
-  return CurDAG->getRegister(GlobalBaseReg, TLI.getPointerTy()).getNode();
+  return CurDAG->getRegister(GlobalBaseReg, TLI->getPointerTy()).getNode();
 }
 
 bool TeeRISCDAGToDAGISel::SelectADDRrr(SDValue Addr, SDValue &R1, SDValue &R2) {
@@ -85,62 +85,26 @@ bool TeeRISCDAGToDAGISel::SelectADDRrr(SDValue Addr, SDValue &R1, SDValue &R2) {
   }
 
   R1 = Addr;
-  R2 = CurDAG->getRegister(TeeRISC::ZERO, TLI.getPointerTy());
+  R2 = CurDAG->getRegister(TeeRISC::ZERO, TLI->getPointerTy());
   return true;
 }
 
 SDNode *TeeRISCDAGToDAGISel::Select(SDNode *N) {
   DebugLoc dl = N->getDebugLoc();
+
+  // If we have a custom node, we already have selected!
   if (N->isMachineOpcode())
     return NULL;   // Already selected.
 
-#if 0
   switch (N->getOpcode()) {
   default: break;
-  case SPISD::GLOBAL_BASE_REG:
+  case ISD::GLOBAL_OFFSET_TABLE:
+  case TeeRISC_ISD::GLOBAL_BASE_REG:
+    DEBUG(N->dump(CurDAG));
     return getGlobalBaseReg();
-
-  case ISD::SDIV:
-  case ISD::UDIV: {
-    // sdivx / udivx handle 64-bit divides.
-    if (N->getValueType(0) == MVT::i64)
-      break;
-    // FIXME: should use a custom expander to expose the SRA to the dag.
-    SDValue DivLHS = N->getOperand(0);
-    SDValue DivRHS = N->getOperand(1);
-
-    // Set the Y register to the high-part.
-    SDValue TopPart;
-    if (N->getOpcode() == ISD::SDIV) {
-      TopPart = SDValue(CurDAG->getMachineNode(SP::SRAri, dl, MVT::i32, DivLHS,
-                                   CurDAG->getTargetConstant(31, MVT::i32)), 0);
-    } else {
-      TopPart = CurDAG->getRegister(SP::G0, MVT::i32);
-    }
-    TopPart = SDValue(CurDAG->getMachineNode(SP::WRYrr, dl, MVT::Glue, TopPart,
-                                     CurDAG->getRegister(SP::G0, MVT::i32)), 0);
-
-    // FIXME: Handle div by immediate.
-    unsigned Opcode = N->getOpcode() == ISD::SDIV ? SP::SDIVrr : SP::UDIVrr;
-    return CurDAG->SelectNodeTo(N, Opcode, MVT::i32, DivLHS, DivRHS,
-                                TopPart);
   }
-  case ISD::MULHU:
-  case ISD::MULHS: {
-    // FIXME: Handle mul by immediate.
-    SDValue MulLHS = N->getOperand(0);
-    SDValue MulRHS = N->getOperand(1);
-    unsigned Opcode = N->getOpcode() == ISD::MULHU ? SP::UMULrr : SP::SMULrr;
-    SDNode *Mul = CurDAG->getMachineNode(Opcode, dl, MVT::i32, MVT::Glue,
-                                         MulLHS, MulRHS);
-    // The high part is in the Y register.
-    return CurDAG->SelectNodeTo(N, SP::RDY, MVT::i32, SDValue(Mul, 1));
-  }
-  }
-#endif
   return SelectCode(N);
 }
-
 
 /// SelectInlineAsmMemoryOperand - Implement addressing mode selection for
 /// inline asm expressions.

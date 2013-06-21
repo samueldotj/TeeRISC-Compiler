@@ -299,6 +299,7 @@ unsigned TeeRISCInstrInfo::getGlobalBaseReg(MachineFunction *MF) const
 {
   TeeRISCMachineFunctionInfo *TeeRISCFI = MF->getInfo<TeeRISCMachineFunctionInfo>();
   unsigned GlobalBaseReg = TeeRISCFI->getGlobalBaseReg();
+
   if (GlobalBaseReg != 0)
     return GlobalBaseReg;
 
@@ -311,7 +312,9 @@ unsigned TeeRISCInstrInfo::getGlobalBaseReg(MachineFunction *MF) const
 
   DebugLoc dl;
 
-  BuildMI(FirstMBB, MBBI, dl, get(TeeRISC::ADD), GlobalBaseReg).addReg(TeeRISC::ZERO);
+  BuildMI(FirstMBB, MBBI, dl, get(TeeRISC::ADD), GlobalBaseReg).addReg(TeeRISC::R10);
+  RegInfo.addLiveIn(TeeRISC::R10);
   TeeRISCFI->setGlobalBaseReg(GlobalBaseReg);
   return GlobalBaseReg;
 }
+

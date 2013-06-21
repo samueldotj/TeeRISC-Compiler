@@ -34,7 +34,7 @@ namespace llvm {
     explicit TeeRISCMachineFunctionInfo(MachineFunction &MF)
       : GlobalBaseReg(0), VarArgsFrameOffset(0), SRetReturnReg(0) {}
 
-    unsigned getGlobalBaseReg() const { return GlobalBaseReg; }
+    unsigned getGlobalBaseReg() const { return GlobalBaseReg; };
     void setGlobalBaseReg(unsigned Reg) { GlobalBaseReg = Reg; }
 
     int getVarArgsFrameOffset() const { return VarArgsFrameOffset; }
