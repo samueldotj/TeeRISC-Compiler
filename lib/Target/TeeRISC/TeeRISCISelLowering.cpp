@@ -63,6 +63,13 @@ TeeRISCTargetLowering::LowerFormalArguments(SDValue Chain,
   return Chain;
 }
 
+const char *TeeRISCTargetLowering::getTargetNodeName(unsigned Opcode) const {
+  switch (Opcode) {
+  default: return 0;
+  case TeeRISC_ISD::RET:    return "TeeRISC_ISD::RET";
+  }
+}
+
 //===----------------------------------------------------------------------===//
 //               Return Value Calling Convention Implementation
 //===----------------------------------------------------------------------===//

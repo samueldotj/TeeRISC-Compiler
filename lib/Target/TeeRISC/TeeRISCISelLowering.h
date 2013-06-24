@@ -40,6 +40,8 @@ namespace llvm {
   public:
     explicit TeeRISCTargetLowering(TeeRISCTargetMachine &TM);
 
+    virtual const char *getTargetNodeName(unsigned Opcode) const;
+
   private:
 	//- must be exist without function all
     virtual SDValue
