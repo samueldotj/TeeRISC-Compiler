@@ -112,7 +112,7 @@ TeeRISCTargetLowering::LowerReturn(SDValue Chain,
   if (Flag.getNode())
     RetOps.push_back(Flag);
 
-  return DAG.getNode(TeeRISC::RET, dl, MVT::Other, &RetOps[0], RetOps.size());
+  return DAG.getNode(TeeRISC_ISD::RET, dl, MVT::Other, &RetOps[0], RetOps.size());
 }
 
 /// LowerOperation - Handle custom opcodes
