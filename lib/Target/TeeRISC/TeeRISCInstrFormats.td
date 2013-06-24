@@ -115,3 +115,10 @@ class F3<bits<6> op, dag outs, dag ins, string asmstr, list<dag> pattern>:
   let Inst{1-0}  = bit_width;
 }
 
+//===----------------------------------------------------------------------===//
+// Pseudo instruction class.
+//===----------------------------------------------------------------------===//
+class Pseudo<dag outs, dag ins, string asmstr, list<dag> pattern>:
+      TeeRISCInst<outs, ins, asmstr, pattern, FormP>;
+
+
