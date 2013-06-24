@@ -43,15 +43,6 @@ public:
 
   SDNode *Select(SDNode *N);
 
-  // Complex Pattern Selectors.
-  bool SelectADDRrr(SDValue N, SDValue &R1, SDValue &R2);
-
-  /// SelectInlineAsmMemoryOperand - Implement addressing mode selection for
-  /// inline asm expressions.
-  virtual bool SelectInlineAsmMemoryOperand(const SDValue &Op,
-                                            char ConstraintCode,
-                                            std::vector<SDValue> &OutOps);
-
   virtual const char *getPassName() const {
     return "TeeRISC DAG->DAG Pattern Instruction Selection";
   }
@@ -69,26 +60,6 @@ SDNode* TeeRISCDAGToDAGISel::getGlobalBaseReg() {
   return CurDAG->getRegister(GlobalBaseReg, TLI->getPointerTy()).getNode();
 }
 
-bool TeeRISCDAGToDAGISel::SelectADDRrr(SDValue Addr, SDValue &R1, SDValue &R2) {
-  if (Addr.getOpcode() == ISD::FrameIndex) return false;
-  if (Addr.getOpcode() == ISD::TargetExternalSymbol ||
-      Addr.getOpcode() == ISD::TargetGlobalAddress)
-    return false;  // direct calls.
-
-  if (Addr.getOpcode() == ISD::ADD) {
-    if (ConstantSDNode *CN = dyn_cast<ConstantSDNode>(Addr.getOperand(1)))
-      if (isInt<16>(CN->getSExtValue()))
-        return false;  // Let the reg+imm pattern catch this!
-    R1 = Addr.getOperand(0);
-    R2 = Addr.getOperand(1);
-    return true;
-  }
-
-  R1 = Addr;
-  R2 = CurDAG->getRegister(TeeRISC::ZERO, TLI->getPointerTy());
-  return true;
-}
-
 SDNode *TeeRISCDAGToDAGISel::Select(SDNode *N) {
   DebugLoc dl = N->getDebugLoc();
 
@@ -98,32 +69,10 @@ SDNode *TeeRISCDAGToDAGISel::Select(SDNode *N) {
 
   switch (N->getOpcode()) {
   default: break;
-  case ISD::GLOBAL_OFFSET_TABLE:
   case TeeRISC_ISD::GLOBAL_BASE_REG:
-    DEBUG(N->dump(CurDAG));
     return getGlobalBaseReg();
   }
   return SelectCode(N);
-}
-
-/// SelectInlineAsmMemoryOperand - Implement addressing mode selection for
-/// inline asm expressions.
-bool
-TeeRISCDAGToDAGISel::SelectInlineAsmMemoryOperand(const SDValue &Op,
-                                                  char ConstraintCode,
-                                                  std::vector<SDValue> &OutOps) {
-  SDValue Op0, Op1;
-  switch (ConstraintCode) {
-  default: return true;
-  case 'm':   // memory
-   if (!SelectADDRrr(Op, Op0, Op1))
-       return true;
-   break;
-  }
-
-  OutOps.push_back(Op0);
-  OutOps.push_back(Op1);
-  return false;
 }
 
 /// createTeeRISCISelDag - This pass converts a legalized DAG into a
