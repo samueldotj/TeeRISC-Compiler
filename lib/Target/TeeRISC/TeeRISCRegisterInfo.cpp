@@ -20,11 +20,14 @@
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/IR/Type.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Target/TargetInstrInfo.h"
 
 #define GET_REGINFO_TARGET_DESC
 #include "TeeRISCGenRegisterInfo.inc"
+#include "TeeRISCMachineFunctionInfo.h"
 
 using namespace llvm;
 
@@ -67,12 +70,32 @@ TeeRISCRegisterInfo::getPointerRegClass(const MachineFunction &MF,
   return &TeeRISC::IntRegsRegClass;
 }
 
+// FrameIndex represent objects inside a abstract stack.
+// We must replace FrameIndex with an stack/frame pointer
+// direct reference.
 void
 TeeRISCRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                                        int SPAdj, unsigned FIOperandNum,
                                        RegScavenger *RS) const {
-  llvm_unreachable("TODO - Write code");
+  MachineInstr &MI = *II;
+  MachineFunction &MF = *MI.getParent()->getParent();
+  MachineFrameInfo *MFI = MF.getFrameInfo();
+  unsigned OFIOperandNum = FIOperandNum == 2 ? 1 : 2;
 
+  int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
+  int stackSize  = MFI->getStackSize();
+  int spOffset   = MFI->getObjectOffset(FrameIndex);
+
+  // as explained on LowerFormalArguments, detect negative offsets
+  // and adjust SPOffsets considering the final stack size.
+  int Offset = (spOffset < 0) ? (stackSize - spOffset) : spOffset;
+  Offset += MI.getOperand(OFIOperandNum).getImm();
+
+  DEBUG(dbgs() << "\neliminateFrameIndex::" << MF.getName() << ":" << Offset << "\n");
+
+  // Replace frame index with a frame pointer reference.
+  MI.getOperand(OFIOperandNum).ChangeToImmediate(Offset);
+  MI.getOperand(FIOperandNum).ChangeToRegister(getFrameRegister(MF), false);
 }
 
 unsigned TeeRISCRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
