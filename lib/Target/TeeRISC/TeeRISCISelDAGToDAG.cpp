@@ -43,6 +43,9 @@ public:
 
   SDNode *Select(SDNode *N);
 
+  // Complex Pattern Selectors.
+  bool SelectADDR(SDValue N, SDValue &R1, SDValue &R2);
+
   virtual const char *getPassName() const {
     return "TeeRISC DAG->DAG Pattern Instruction Selection";
   }
@@ -58,6 +61,23 @@ private:
 SDNode* TeeRISCDAGToDAGISel::getGlobalBaseReg() {
   unsigned GlobalBaseReg = TM.getInstrInfo()->getGlobalBaseReg(MF);
   return CurDAG->getRegister(GlobalBaseReg, TLI->getPointerTy()).getNode();
+}
+
+/// Address pattern matching
+bool TeeRISCDAGToDAGISel::SelectADDR(SDValue Addr,
+                                     SDValue &Base, SDValue &Offset) {
+  if (FrameIndexSDNode *FIN = dyn_cast<FrameIndexSDNode>(Addr)) {
+    Base = CurDAG->getTargetFrameIndex(FIN->getIndex(), TLI->getPointerTy());
+    Offset = CurDAG->getTargetConstant(0, MVT::i32);
+    return true;
+  }
+  if (Addr.getOpcode() == ISD::TargetExternalSymbol ||
+      Addr.getOpcode() == ISD::TargetGlobalAddress)
+      return false;  // direct calls.
+
+  Base = Addr;
+  Offset = CurDAG->getTargetConstant(0, MVT::i32);
+  return true;
 }
 
 SDNode *TeeRISCDAGToDAGISel::Select(SDNode *N) {

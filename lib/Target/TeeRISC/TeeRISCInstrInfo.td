@@ -46,8 +46,21 @@ def call            : SDNode<"TeeRISC_ISD::CALL", SDT_TeeRISCCall,
 def SDT_TeeRISCRet  : SDTypeProfile<0, 1, [SDTCisInt<0>]>;
 def TeeRISCRET      : SDNode<"TeeRISC_ISD::RET", SDT_TeeRISCRet,
                             [SDNPHasChain, SDNPOptInGlue]>;
- 
+
+//===----------------------------------------------------------------------===//
+// Addressing Modes
+//===----------------------------------------------------------------------===//
+def ADDR:   ComplexPattern<iPTR, 2, "SelectADDR", [frameindex], []>;
+
+// Address operands
+def MEM:    Operand<iPTR> {
+  let PrintMethod = "printMemOperand";
+  let MIOperandInfo = (ops ptr_rc, i32imm);
+}
+
+//===----------------------------------------------------------------------===// 
 // Instructions
+//===----------------------------------------------------------------------===//
 def ADD:    F1<1, (outs IntRegs:$dst), (ins IntRegs:$b, IntRegs:$c), 
                 "$dst = $b + $c", 
                 [(set i32:$dst, (add i32:$b, i32:$c))]>;
@@ -60,19 +73,21 @@ def OR_IMM: F1<12, (outs IntRegs:$dst), (ins IntRegs:$b, i32imm:$c),
                 "$dst = $b", 
                 [(set i32:$dst, (or i32:$b, (i32 imm16:$c)))]>;
 
-def LD:     F3<16, (outs IntRegs:$dst), (ins IntRegs:$b), 
-                "$dst = *(uint32_t *) $b", 
-                [(set i32:$dst, (load i32:$b))]>;
+def LD:     F3<16, (outs IntRegs:$dst), (ins MEM:$addr), 
+                "$dst = *(uint32_t *) $addr", 
+                [(set i32:$dst, (load ADDR:$addr))]>;
 
-def ST:     F3<17, (outs), (ins IntRegs:$dst, IntRegs:$b), 
-                "*(uint32_t *)$b = $dst", 
-                [(store i32:$b, i32:$dst)]>;
+def ST:     F3<17, (outs), (ins MEM:$addr, IntRegs:$src), 
+                "*(uint32_t *)$src = $src", 
+                [(store i32:$src, ADDR:$addr)]>;
 
 def CALL:   F1<19, (outs), (ins IntRegs:$dst), 
                 "$dst()", 
                 [(call i32:$dst)]>;
 
-//Pseudo Instructions
+//===----------------------------------------------------------------------===//
+// Pseudo Instructions
+//===----------------------------------------------------------------------===//
 let isReturn=1, isTerminator=1, hasDelaySlot=1, isCodeGenOnly=1,
     isBarrier=1, hasCtrlDep=1 in
   def RET:  Pseudo<(outs), (ins IntRegs:$dst),
@@ -94,4 +109,5 @@ def : Pat<(i32 imm16:$val),
 // Arbitrary immediates.
 def : Pat<(i32 imm:$val),
           (OR_IMM (SETHIi (HI16 imm:$val)), (LO16 imm:$val))>;
+
 
