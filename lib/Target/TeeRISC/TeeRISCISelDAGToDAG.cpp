@@ -30,10 +30,10 @@ using namespace llvm;
 ///
 namespace {
 class TeeRISCDAGToDAGISel : public SelectionDAGISel {
+  TeeRISCTargetMachine& TM;
   /// Subtarget - Keep a pointer to the TeeRISC Subtarget around so that we can
   /// make the right decision when generating code for different targets.
   const TeeRISCSubtarget &Subtarget;
-  TeeRISCTargetMachine& TM;
 public:
   explicit TeeRISCDAGToDAGISel(TeeRISCTargetMachine &tm)
     : SelectionDAGISel(tm),

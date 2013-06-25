@@ -75,12 +75,14 @@ TeeRISCRegisterInfo::getPointerRegClass(const MachineFunction &MF,
 // direct reference.
 void
 TeeRISCRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
-                                       int SPAdj, unsigned FIOperandNum,
-                                       RegScavenger *RS) const {
+                                         int SPAdj, unsigned FIOperandNum,
+                                         RegScavenger *RS) const {
   MachineInstr &MI = *II;
   MachineFunction &MF = *MI.getParent()->getParent();
   MachineFrameInfo *MFI = MF.getFrameInfo();
-  unsigned OFIOperandNum = FIOperandNum == 2 ? 1 : 2;
+  unsigned OFIOperandNum = FIOperandNum + 1;
+
+  assert(FIOperandNum < 1);
 
   int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
   int stackSize  = MFI->getStackSize();

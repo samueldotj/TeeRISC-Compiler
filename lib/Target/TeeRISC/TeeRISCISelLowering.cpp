@@ -40,6 +40,12 @@ TeeRISCTargetLowering::TeeRISCTargetLowering(TeeRISCTargetMachine &TM)
   // Set up the register classes
   addRegisterClass(MVT::i32, &TeeRISC::IntRegsRegClass);
 
+  // Variable Argument support
+  setOperationAction(ISD::VASTART,            MVT::Other, Custom);
+  setOperationAction(ISD::VAEND,              MVT::Other, Expand);
+  setOperationAction(ISD::VAARG,              MVT::Other, Expand);
+  setOperationAction(ISD::VACOPY,             MVT::Other, Expand);
+
   //- Set .align 2
   // It will emit .align 2 later
   setMinFunctionAlignment(2);

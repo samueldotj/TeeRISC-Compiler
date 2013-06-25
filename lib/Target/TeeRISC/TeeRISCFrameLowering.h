@@ -35,6 +35,7 @@ public:
   void eliminateCallFramePseudoInstr(MachineFunction &MF,
                                      MachineBasicBlock &MBB,
                                      MachineBasicBlock::iterator I) const;
+  void processFunctionBeforeCalleeSavedScan(MachineFunction &MF, RegScavenger *RS) const;
 
   bool hasReservedCallFrame(const MachineFunction &MF) const;
   bool hasFP(const MachineFunction &MF) const;
