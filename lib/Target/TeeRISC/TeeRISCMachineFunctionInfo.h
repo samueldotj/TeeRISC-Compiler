@@ -57,19 +57,23 @@ namespace llvm {
     /// relocation models.
     unsigned GlobalBaseReg;
 
-    /// VarArgsFrameOffset - Frame offset to start of varargs area.
-    int VarArgsFrameOffset;
+    // VarArgsFrameIndex - FrameIndex for start of varargs area.
+    int VarArgsFrameIndex;
 
     /// SRetReturnReg - Holds the virtual register into which the sret
     /// argument is passed.
     unsigned SRetReturnReg;
+
+    /// LiveInFI - keeps track of the frame indexes in a callers stack
+    /// frame that are live into a function.
+    SmallVector<int, 16> LiveInFI;
   public:
     TeeRISCMachineFunctionInfo()
       : FPStackOffset(0), RAStackOffset(0), HasLoadArgs(false), HasStoreVarArgs(false),
-        GlobalBaseReg(0), VarArgsFrameOffset(0), SRetReturnReg(0) {}
+        GlobalBaseReg(0), VarArgsFrameIndex(0), SRetReturnReg(0), LiveInFI() {}
     explicit TeeRISCMachineFunctionInfo(MachineFunction &MF)
       : FPStackOffset(0), RAStackOffset(0), HasLoadArgs(false), HasStoreVarArgs(false),
-        GlobalBaseReg(0), VarArgsFrameOffset(0), SRetReturnReg(0) {}
+        GlobalBaseReg(0), VarArgsFrameIndex(0), SRetReturnReg(0), LiveInFI() {}
 
     int getFPStackOffset() const { return FPStackOffset; }
     void setFPStackOffset(int Off) { FPStackOffset = Off; }
@@ -80,18 +84,35 @@ namespace llvm {
     unsigned getGlobalBaseReg() const { return GlobalBaseReg; };
     void setGlobalBaseReg(unsigned Reg) { GlobalBaseReg = Reg; }
 
-    int getVarArgsFrameOffset() const { return VarArgsFrameOffset; }
-    void setVarArgsFrameOffset(int Offset) { VarArgsFrameOffset = Offset; }
-
     unsigned getSRetReturnReg() const { return SRetReturnReg; }
     void setSRetReturnReg(unsigned Reg) { SRetReturnReg = Reg; }
 
     bool hasLoadArgs() const { return HasLoadArgs; }
     bool hasStoreVarArgs() const { return HasStoreVarArgs; }
 
+    void recordLiveIn(int FI) {
+      LiveInFI.push_back(FI);
+    }
+
+    bool isLiveIn(int FI) {
+    for (unsigned i = 0, e = LiveInFI.size(); i < e; ++i)
+      if (FI == LiveInFI[i]) return true;
+
+      return false;
+    }
+
+    const SmallVector<int, 16>& getLiveIn() const { 
+      return LiveInFI; 
+    }
+
     void recordLoadArgsFI(int FI, int SPOffset) {
       if (!HasLoadArgs) HasLoadArgs=true;
       FnLoadArgs.push_back(TeeRISCFIHolder(FI, SPOffset));
+    }
+
+    void recordStoreVarArgsFI(int FI, int SPOffset) {
+      if (!HasStoreVarArgs) HasStoreVarArgs=true;
+      FnStoreVarArgs.push_back(TeeRISCFIHolder(FI, SPOffset));
     }
 
     void adjustLoadArgsFI(MachineFrameInfo *MFI) const {
@@ -105,6 +126,9 @@ namespace llvm {
       for (unsigned i = 0, e = FnStoreVarArgs.size(); i != e; ++i)
         MFI->setObjectOffset(FnStoreVarArgs[i].FI, FnStoreVarArgs[i].SPOffset);
     }
+
+    int getVarArgsFrameIndex() const { return VarArgsFrameIndex; }
+    void setVarArgsFrameIndex(int Index) { VarArgsFrameIndex = Index; }
   };
 }
 

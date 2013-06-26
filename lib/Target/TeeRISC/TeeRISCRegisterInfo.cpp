@@ -81,9 +81,7 @@ TeeRISCRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   MachineFunction &MF = *MI.getParent()->getParent();
   MachineFrameInfo *MFI = MF.getFrameInfo();
   unsigned OFIOperandNum = FIOperandNum + 1;
-
-  assert(FIOperandNum < 1);
-
+  
   int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
   int stackSize  = MFI->getStackSize();
   int spOffset   = MFI->getObjectOffset(FrameIndex);
