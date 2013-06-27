@@ -51,6 +51,16 @@ namespace llvm {
                            SDLoc dl, SelectionDAG &DAG,
                            SmallVectorImpl<SDValue> &InVals) const;
 
+    virtual SDValue
+      LowerCall(TargetLowering::CallLoweringInfo &CLI,
+                SmallVectorImpl<SDValue> &InVals) const;
+
+    virtual SDValue
+      LowerCallResult(SDValue Chain, SDValue InFlag, CallingConv::ID CallConv,
+                      bool isVarArg, const SmallVectorImpl<ISD::InputArg> &Ins,
+                      SDLoc dl, SelectionDAG &DAG,
+                      SmallVectorImpl<SDValue> &InVals) const;
+
 	//- must be exist without function all
     virtual SDValue
       LowerReturn(SDValue Chain,

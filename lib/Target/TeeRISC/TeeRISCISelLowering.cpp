@@ -68,6 +68,196 @@ const char *TeeRISCTargetLowering::getTargetNodeName(unsigned Opcode) const {
 }
 
 //===----------------------------------------------------------------------===//
+//                  Call Calling Convention Implementation
+//===----------------------------------------------------------------------===//
+
+/// LowerCall - functions arguments are copied from virtual regs to
+/// (physical regs)/(stack frame), CALLSEQ_START and CALLSEQ_END are emitted.
+/// TODO: isVarArg, isTailCall.
+SDValue TeeRISCTargetLowering::
+LowerCall(TargetLowering::CallLoweringInfo &CLI,
+          SmallVectorImpl<SDValue> &InVals) const {
+  SelectionDAG &DAG                     = CLI.DAG;
+  SDLoc dl                              = CLI.DL;
+  SmallVector<ISD::OutputArg, 32> &Outs = CLI.Outs;
+  SmallVector<SDValue, 32> &OutVals     = CLI.OutVals;
+  SmallVector<ISD::InputArg, 32> &Ins   = CLI.Ins;
+  SDValue Chain                         = CLI.Chain;
+  SDValue Callee                        = CLI.Callee;
+  bool &isTailCall                      = CLI.IsTailCall;
+  CallingConv::ID CallConv              = CLI.CallConv;
+  bool isVarArg                         = CLI.IsVarArg;
+
+  // TeeRISC does not yet support tail call optimization
+  isTailCall = false;
+
+  // The TeeRISC requires stack slots for arguments passed to var arg
+  // functions even if they are passed in registers.
+  bool needsRegArgSlots = isVarArg;
+
+  MachineFunction &MF = DAG.getMachineFunction();
+  MachineFrameInfo *MFI = MF.getFrameInfo();
+  const TargetFrameLowering &TFI = *MF.getTarget().getFrameLowering();
+
+  // Analyze operands of the call, assigning locations to each operand.
+  SmallVector<CCValAssign, 16> ArgLocs;
+  CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(),
+                 getTargetMachine(), ArgLocs, *DAG.getContext());
+  CCInfo.AnalyzeCallOperands(Outs, CC_TeeRISC);
+
+  // Get a count of how many bytes are to be pushed on the stack.
+  unsigned NumBytes = CCInfo.getNextStackOffset();
+
+  // Variable argument function calls require a minimum of 24-bytes of stack
+  if (isVarArg && NumBytes < 24) NumBytes = 24;
+
+  Chain = DAG.getCALLSEQ_START(Chain, DAG.getIntPtrConstant(NumBytes, true),
+                               dl);
+
+  SmallVector<std::pair<unsigned, SDValue>, 8> RegsToPass;
+  SmallVector<SDValue, 8> MemOpChains;
+
+  // Walk the register/memloc assignments, inserting copies/loads.
+  for (unsigned i = 0, e = ArgLocs.size(); i != e; ++i) {
+    CCValAssign &VA = ArgLocs[i];
+    MVT RegVT = VA.getLocVT();
+    SDValue Arg = OutVals[i];
+
+    // Promote the value if needed.
+    switch (VA.getLocInfo()) {
+    default: llvm_unreachable("Unknown loc info!");
+    case CCValAssign::Full: break;
+    case CCValAssign::SExt:
+      Arg = DAG.getNode(ISD::SIGN_EXTEND, dl, RegVT, Arg);
+      break;
+    case CCValAssign::ZExt:
+      Arg = DAG.getNode(ISD::ZERO_EXTEND, dl, RegVT, Arg);
+      break;
+    case CCValAssign::AExt:
+      Arg = DAG.getNode(ISD::ANY_EXTEND, dl, RegVT, Arg);
+      break;
+    }
+
+    // Arguments that can be passed on register must be kept at
+    // RegsToPass vector
+    if (VA.isRegLoc()) {
+      RegsToPass.push_back(std::make_pair(VA.getLocReg(), Arg));
+    } else {
+      // Register can't get to this point...
+      assert(VA.isMemLoc());
+
+      // Since we are alread passing values on the stack we don't
+      // need to worry about creating additional slots for the
+      // values passed via registers.
+      needsRegArgSlots = false;
+
+      // Create the frame index object for this incoming parameter
+      unsigned ArgSize = VA.getValVT().getSizeInBits()/8;
+      unsigned StackLoc = VA.getLocMemOffset() + 4;
+      int FI = MFI->CreateFixedObject(ArgSize, StackLoc, true);
+
+      SDValue PtrOff = DAG.getFrameIndex(FI,getPointerTy());
+
+      // emit ISD::STORE whichs stores the
+      // parameter value to a stack Location
+      MemOpChains.push_back(DAG.getStore(Chain, dl, Arg, PtrOff,
+                                         MachinePointerInfo(),
+                                         false, false, 0));
+    }
+  }
+
+  // If we need to reserve stack space for the arguments passed via registers
+  // then create a fixed stack object at the beginning of the stack.
+  if (needsRegArgSlots && TFI.hasReservedCallFrame(MF))
+    MFI->CreateFixedObject(28, 0, true);
+
+  // Transform all store nodes into one single node because all store
+  // nodes are independent of each other.
+  if (!MemOpChains.empty())
+    Chain = DAG.getNode(ISD::TokenFactor, dl, MVT::Other,
+                        &MemOpChains[0], MemOpChains.size());
+
+  // Build a sequence of copy-to-reg nodes chained together with token
+  // chain and flag operands which copy the outgoing args into registers.
+  // The InFlag in necessary since all emitted instructions must be
+  // stuck together.
+  SDValue InFlag;
+  for (unsigned i = 0, e = RegsToPass.size(); i != e; ++i) {
+    Chain = DAG.getCopyToReg(Chain, dl, RegsToPass[i].first,
+                             RegsToPass[i].second, InFlag);
+    InFlag = Chain.getValue(1);
+  }
+
+  // If the callee is a GlobalAddress/ExternalSymbol node (quite common, every
+  // direct call is) turn it into a TargetGlobalAddress/TargetExternalSymbol
+  // node so that legalize doesn't hack it.
+  if (GlobalAddressSDNode *G = dyn_cast<GlobalAddressSDNode>(Callee))
+    Callee = DAG.getTargetGlobalAddress(G->getGlobal(), dl,
+                                getPointerTy(), 0, 0);
+  else if (ExternalSymbolSDNode *S = dyn_cast<ExternalSymbolSDNode>(Callee))
+    Callee = DAG.getTargetExternalSymbol(S->getSymbol(),
+                                getPointerTy(), 0);
+
+  // TeeRISC::CALL = #chain, #target_address, #opt_in_flags...
+  //               = Chain, Callee, Reg#1, Reg#2, ...
+  //
+  // Returns a chain & a flag for retval copy to use.
+  SDVTList NodeTys = DAG.getVTList(MVT::Other, MVT::Glue);
+  SmallVector<SDValue, 8> Ops;
+  Ops.push_back(Chain);
+  Ops.push_back(Callee);
+
+  // Add argument registers to the end of the list so that they are
+  // known live into the call.
+  for (unsigned i = 0, e = RegsToPass.size(); i != e; ++i) {
+    Ops.push_back(DAG.getRegister(RegsToPass[i].first,
+                                  RegsToPass[i].second.getValueType()));
+  }
+
+  if (InFlag.getNode())
+    Ops.push_back(InFlag);
+
+  Chain  = DAG.getNode(TeeRISC_ISD::CALL, dl, NodeTys, &Ops[0], Ops.size());
+  InFlag = Chain.getValue(1);
+
+  // Create the CALLSEQ_END node.
+  Chain = DAG.getCALLSEQ_END(Chain, DAG.getIntPtrConstant(NumBytes, true),
+                             DAG.getIntPtrConstant(0, true), InFlag, dl);
+  if (!Ins.empty())
+    InFlag = Chain.getValue(1);
+
+  // Handle result values, copying them out of physregs into vregs that we
+  // return.
+  return LowerCallResult(Chain, InFlag, CallConv, isVarArg,
+                         Ins, dl, DAG, InVals);
+}
+
+/// LowerCallResult - Lower the result values of a call into the
+/// appropriate copies out of appropriate physical registers.
+SDValue TeeRISCTargetLowering::
+LowerCallResult(SDValue Chain, SDValue InFlag, CallingConv::ID CallConv,
+                bool isVarArg, const SmallVectorImpl<ISD::InputArg> &Ins,
+                SDLoc dl, SelectionDAG &DAG,
+                SmallVectorImpl<SDValue> &InVals) const {
+  // Assign locations to each value returned by this call.
+  SmallVector<CCValAssign, 16> RVLocs;
+  CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(),
+                 getTargetMachine(), RVLocs, *DAG.getContext());
+
+  CCInfo.AnalyzeCallResult(Ins, RetCC_TeeRISC);
+
+  // Copy all of the result registers out of their specified physreg.
+  for (unsigned i = 0; i != RVLocs.size(); ++i) {
+    Chain = DAG.getCopyFromReg(Chain, dl, RVLocs[i].getLocReg(),
+                               RVLocs[i].getValVT(), InFlag).getValue(1);
+    InFlag = Chain.getValue(2);
+    InVals.push_back(Chain.getValue(0));
+  }
+
+  return Chain;
+}
+
+//===----------------------------------------------------------------------===//
 //             Formal Arguments Calling Convention Implementation
 //===----------------------------------------------------------------------===//
 
