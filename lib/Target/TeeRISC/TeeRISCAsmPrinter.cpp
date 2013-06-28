@@ -73,8 +73,6 @@ void TeeRISCAsmPrinter::printOperand(const MachineInstr *MI, int opNum,
                                    raw_ostream &O) {
   const MachineOperand &MO = MI->getOperand (opNum);
 
-  bool CloseParen = true;
-
   switch (MO.getType()) {
   case MachineOperand::MO_Register:
     O << "%" << StringRef(getRegisterName(MO.getReg())).lower();
@@ -99,7 +97,6 @@ void TeeRISCAsmPrinter::printOperand(const MachineInstr *MI, int opNum,
   default:
     llvm_unreachable("<unknown operand type>");
   }
-  if (CloseParen) O << ")";
 }
 
 void TeeRISCAsmPrinter::printMemOperand(const MachineInstr *MI, int opNum,
