@@ -43,30 +43,41 @@ const uint16_t* TeeRISCRegisterInfo::getCalleeSavedRegs(const MachineFunction *M
 }
 
 BitVector TeeRISCRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
+  static const uint16_t ReservedCPURegs[] = {
+    TeeRISC::R0,  // ZERO
+    TeeRISC::R14, // FP
+    TeeRISC::R15, // SP
+
+    TeeRISC::R16, // IP
+    TeeRISC::R17, // LR
+    TeeRISC::R18, // E_LR
+    TeeRISC::R19, // I_LR
+    TeeRISC::R20, // FLAGS
+    TeeRISC::R21, // S_FLAGS
+    TeeRISC::R22, // CR0
+    TeeRISC::R23,
+    TeeRISC::R24,
+    TeeRISC::R25,
+    TeeRISC::R26,
+    TeeRISC::R27,
+    TeeRISC::R28,
+    TeeRISC::R29,
+    TeeRISC::R30,
+    TeeRISC::R31
+  };
+
   BitVector Reserved(getNumRegs());
-  // FIXME: G1 reserved for now for large imm generation by frame code.
-  Reserved.set(TeeRISC::R16);
-  Reserved.set(TeeRISC::R17);
-  Reserved.set(TeeRISC::R18);
-  Reserved.set(TeeRISC::R19);
-  Reserved.set(TeeRISC::R20);
-  Reserved.set(TeeRISC::R21);
-  Reserved.set(TeeRISC::R22);
-  Reserved.set(TeeRISC::R23);
-  Reserved.set(TeeRISC::R24);
-  Reserved.set(TeeRISC::R25);
-  Reserved.set(TeeRISC::R26);
-  Reserved.set(TeeRISC::R27);
-  Reserved.set(TeeRISC::R28);
-  Reserved.set(TeeRISC::R29);
-  Reserved.set(TeeRISC::R30);
-  Reserved.set(TeeRISC::R31);
+  typedef TargetRegisterClass::iterator RegIter;
+
+  for (unsigned I = 0; I < array_lengthof(ReservedCPURegs); ++I)
+    Reserved.set(ReservedCPURegs[I]);
+
   return Reserved;
 }
 
 const TargetRegisterClass*
 TeeRISCRegisterInfo::getPointerRegClass(const MachineFunction &MF,
-                                      unsigned Kind) const {
+                                        unsigned Kind) const {
   return &TeeRISC::IntRegsRegClass;
 }
 
