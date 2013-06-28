@@ -83,7 +83,7 @@ def OR:     F1<7, (outs IntRegs:$dst), (ins IntRegs:$b, IntRegs:$c),
                 [(set i32:$dst, (or i32:$b, i32:$c))]>;
 
 def OR_IMM: F1<12, (outs IntRegs:$dst), (ins IntRegs:$b, i32imm:$c), 
-                "$dst = $b", 
+                "$dst = $b | $c", 
                 [(set i32:$dst, (or i32:$b, (i32 imm16:$c)))]>;
 
 def LD:     F3<16, (outs IntRegs:$dst), (ins MEM:$addr), 
@@ -91,7 +91,7 @@ def LD:     F3<16, (outs IntRegs:$dst), (ins MEM:$addr),
                 [(set i32:$dst, (load ADDR:$addr))]>;
 
 def ST:     F3<17, (outs), (ins MEM:$addr, IntRegs:$src), 
-                "*(uint32_t *)$src = $src", 
+                "*(uint32_t *)$addr = $src", 
                 [(store i32:$src, ADDR:$addr)]>;
 
 def CALL:   F1<19, (outs), (ins IntRegs:$dst), 
