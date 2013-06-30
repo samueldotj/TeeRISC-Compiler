@@ -28,15 +28,10 @@ static inline bool isTeeRISCRegister(unsigned Reg) {
 
 static inline bool isSpecialTeeRISCRegister(unsigned Reg) {
   switch (Reg) {
-    case 0x0000 : case 0x0001 : case 0x0003 : case 0x0005 : 
-    case 0x0007 : case 0x000B : case 0x000D : case 0x1000 : 
-    case 0x1001 : case 0x1002 : case 0x1003 : case 0x1004 : 
-    case 0x2000 : case 0x2001 : case 0x2002 : case 0x2003 : 
-    case 0x2004 : case 0x2005 : case 0x2006 : case 0x2007 : 
-    case 0x2008 : case 0x2009 : case 0x200A : case 0x200B : 
-      return true;
-
     default:
+        return true;
+    case TeeRISC::R0:
+    case TeeRISC::R16...TeeRISC::R31:
       return false;
   }
 }
