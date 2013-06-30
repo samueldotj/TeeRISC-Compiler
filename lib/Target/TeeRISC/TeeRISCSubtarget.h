@@ -44,10 +44,6 @@ public:
     p = "e-p:32:32:32-i32:32:32";
     return std::string(p);
   }
-
-  int64_t getStackPointerBias() const {
-    return 0;
-  }
 };
 
 } // end namespace llvm
