@@ -37,12 +37,15 @@ TeeRISCInstrInfo::TeeRISCInstrInfo(TeeRISCSubtarget &ST)
 /// the destination along with the FrameIndex of the loaded stack slot.  If
 /// not, return 0.  This predicate must return 0 if the instruction has
 /// any side effects other than loading from the stack slot.
+/// Dest = *(Src + Imm)
+///  Op0 =   Op1   Op2
 unsigned TeeRISCInstrInfo::isLoadFromStackSlot(const MachineInstr *MI,
-                                             int &FrameIndex) const {
+                                               int &FrameIndex) const {
+  assert(0);
   if (MI->getOpcode() == TeeRISC::LD) {
     if (MI->getOperand(1).isFI() && MI->getOperand(2).isImm() &&
         MI->getOperand(2).getImm() == 0) {
-      FrameIndex = MI->getOperand(2).getIndex();
+      FrameIndex = MI->getOperand(1).getIndex();
       return MI->getOperand(0).getReg();
     }
   }
@@ -54,13 +57,17 @@ unsigned TeeRISCInstrInfo::isLoadFromStackSlot(const MachineInstr *MI,
 /// the source reg along with the FrameIndex of the loaded stack slot.  If
 /// not, return 0.  This predicate must return 0 if the instruction has
 /// any side effects other than storing to the stack slot.
+/// *(Dest + Imm) = Src
+///    Op0 + Op1    Op2
 unsigned TeeRISCInstrInfo::isStoreToStackSlot(const MachineInstr *MI,
-                                            int &FrameIndex) const {
+                                              int &FrameIndex) const {
+
+  assert(0);
   if (MI->getOpcode() == TeeRISC::ST) {
-    if (MI->getOperand(0).isFI() && MI->getOperand(1).isImm() &&
-        MI->getOperand(1).getImm() == 0) {
-      FrameIndex = MI->getOperand(0).getIndex();
-      return MI->getOperand(2).getReg();
+    if (MI->getOperand(1).isFI() && MI->getOperand(2).isImm() &&
+        MI->getOperand(2).getImm() == 0) {
+      FrameIndex = MI->getOperand(1).getIndex();
+      return MI->getOperand(0).getReg();
     }
   }
   return 0;
