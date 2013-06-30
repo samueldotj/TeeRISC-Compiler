@@ -24,7 +24,7 @@ class TeeRISCFrameLowering : public TargetFrameLowering {
   const TeeRISCSubtarget &SubTarget;
 public:
   explicit TeeRISCFrameLowering(const TeeRISCSubtarget &ST)
-    : TargetFrameLowering(TargetFrameLowering::StackGrowsDown, 8, 0, 8),
+    : TargetFrameLowering(TargetFrameLowering::StackGrowsUp, 4 /*Alignment*/, 0 /*Local Area Offset*/),
       SubTarget(ST) {}
 
   /// emitProlog/emitEpilog - These methods insert prolog and epilog code into

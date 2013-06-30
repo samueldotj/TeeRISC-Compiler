@@ -14,8 +14,10 @@
 #include "TeeRISCRegisterInfo.h"
 #include "TeeRISC.h"
 #include "TeeRISCSubtarget.h"
+#include "TeeRISCMachineFunctionInfo.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/Target/TargetFrameLowering.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
@@ -38,7 +40,9 @@ TeeRISCRegisterInfo::TeeRISCRegisterInfo(TeeRISCSubtarget &st,
 
 const uint16_t* TeeRISCRegisterInfo::getCalleeSavedRegs(const MachineFunction *MF)
                                                                          const {
-  static const uint16_t CalleeSavedRegs[] = { 0 };
+  static const uint16_t CalleeSavedRegs[] = {
+    TeeRISC::R6, TeeRISC::R7, TeeRISC::R8, TeeRISC::R9, TeeRISC::R10
+  };
   return CalleeSavedRegs;
 }
 
@@ -92,17 +96,28 @@ TeeRISCRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   MachineFunction &MF = *MI.getParent()->getParent();
   MachineFrameInfo *MFI = MF.getFrameInfo();
   unsigned OFIOperandNum = FIOperandNum + 1;
+
+  DEBUG(dbgs() << "\nFunction : " << MF.getName() << "\n";
+        dbgs() << "<--------->\n" << MI);
   
   int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
   int stackSize  = MFI->getStackSize();
   int spOffset   = MFI->getObjectOffset(FrameIndex);
 
+  DEBUG(TeeRISCMachineFunctionInfo *TFI = MF.getInfo<TeeRISCMachineFunctionInfo>();
+        dbgs() << "eliminateFrameIndex" << "\n"
+               << "FrameIndex : " << FrameIndex << "\n"
+               << "spOffset   : " << spOffset << "\n"
+               << "stackSize  : " << stackSize << "\n"
+               << "isFixed    : " << MFI->isFixedObjectIndex(FrameIndex) << "\n"
+               << "isLiveIn   : " << TFI->isLiveIn(FrameIndex) << "\n"
+               << "isSpill    : " << MFI->isSpillSlotObjectIndex(FrameIndex)
+               << "\n" );
+
   // as explained on LowerFormalArguments, detect negative offsets
   // and adjust SPOffsets considering the final stack size.
   int Offset = (spOffset < 0) ? (stackSize - spOffset) : spOffset;
   Offset += MI.getOperand(OFIOperandNum).getImm();
-
-  DEBUG(dbgs() << "\neliminateFrameIndex::" << MF.getName() << ":" << Offset << "\n");
 
   // Replace frame index with a frame pointer reference.
   MI.getOperand(OFIOperandNum).ChangeToImmediate(Offset);
@@ -110,7 +125,9 @@ TeeRISCRegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
 }
 
 unsigned TeeRISCRegisterInfo::getFrameRegister(const MachineFunction &MF) const {
-  return TeeRISC::FP;
+  const TargetFrameLowering *TFI = MF.getTarget().getFrameLowering();
+
+  return TFI->hasFP(MF) ? TeeRISC::FP : TeeRISC::SP;
 }
 
 unsigned TeeRISCRegisterInfo::getEHExceptionRegister() const {
