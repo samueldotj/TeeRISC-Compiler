@@ -49,6 +49,7 @@ const uint16_t* TeeRISCRegisterInfo::getCalleeSavedRegs(const MachineFunction *M
 BitVector TeeRISCRegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   static const uint16_t ReservedCPURegs[] = {
     TeeRISC::R0,  // ZERO
+    TeeRISC::R1,  // RETURN VALUE
     TeeRISC::R14, // FP
     TeeRISC::R15, // SP
 
