@@ -26,11 +26,10 @@ TeeRISCELFMCAsmInfo::TeeRISCELFMCAsmInfo(StringRef TT) {
   Data32bitsDirective = "\t.word\t";
   Data64bitsDirective = 0;
   ZeroDirective = "\t.skip\t";
-  CommentString = "!";
+  CommentString = "//";
   HasLEB128 = true;
   SupportsDebugInformation = true;
   
-  SunStyleELFSectionSwitchSyntax = true;
   UsesELFSectionDirectiveForBSS = true;
 
   WeakRefDirective = "\t.weak\t";
