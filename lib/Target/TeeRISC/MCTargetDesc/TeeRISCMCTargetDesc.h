@@ -14,10 +14,31 @@
 #ifndef TeeRISCMCTARGETDESC_H
 #define TeeRISCMCTARGETDESC_H
 
+#include "llvm/Support/DataTypes.h"
+
 namespace llvm {
+class MCAsmBackend;
+class MCContext;
+class MCCodeEmitter;
+class MCInstrInfo;
+class MCObjectWriter;
+class MCRegisterInfo;
+class MCSubtargetInfo;
 class Target;
+class StringRef;
+class raw_ostream;
 
 extern Target TheTeeRISCTarget;
+
+MCCodeEmitter *createTeeRISCMCCodeEmitter(const MCInstrInfo &MCII,
+                                          const MCRegisterInfo &MRI,
+                                          const MCSubtargetInfo &STI,
+                                          MCContext &Ctx);
+
+MCAsmBackend *createTeeRISCAsmBackend(const Target &T, StringRef TT,
+                                      StringRef CPU);
+
+MCObjectWriter *createTeeRISCELFObjectWriter(raw_ostream &OS, uint8_t OSABI);
 
 } // End llvm namespace
 

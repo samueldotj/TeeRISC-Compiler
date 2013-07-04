@@ -510,6 +510,22 @@ enum {
   R_PPC64_TLSLD               = 108
 };
 
+// TeeRISC relocations.
+enum {
+  R_TEERISC_NONE           = 0,
+  R_TEERISC_32             = 1,
+  R_TEERISC_32_PCREL       = 2,
+  R_TEERISC_64_PCREL       = 3,
+  R_TEERISC_64             = 5,
+  R_TEERISC_GOTPC_64       = 13,
+  R_TEERISC_GOT_64         = 14,
+  R_TEERISC_PLT_64         = 15,
+  R_TEERISC_REL            = 16,
+  R_TEERISC_GOTOFF_64      = 19,
+  R_TEERISC_GOTOFF_32      = 20,
+  R_TEERISC_COPY           = 21
+};
+
 // ELF Relocation types for AArch64
 
 enum {

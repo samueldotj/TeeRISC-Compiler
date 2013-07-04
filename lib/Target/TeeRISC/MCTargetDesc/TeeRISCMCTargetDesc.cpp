@@ -16,6 +16,7 @@
 #include "llvm/MC/MCCodeGenInfo.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
+#include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/TargetRegistry.h"
@@ -74,6 +75,17 @@ static MCCodeGenInfo *createTeeRISCMCCodeGenInfo(StringRef TT, Reloc::Model RM,
   return X;
 }
 
+static MCStreamer *createMCStreamer(const Target &T, StringRef TT,
+                                    MCContext &Ctx, MCAsmBackend &MAB,
+                                    raw_ostream &_OS,
+                                    MCCodeEmitter *_Emitter,
+                                    bool RelaxAll,
+                                    bool NoExecStack) {
+  Triple TheTriple(TT);
+
+  return createELFStreamer(Ctx, MAB, _OS, _Emitter, RelaxAll, NoExecStack);
+}
+
 extern "C" void LLVMInitializeTeeRISCTargetMC() {
   // Register the MC asm info.
   RegisterMCAsmInfo<TeeRISCELFMCAsmInfo> X(TheTeeRISCTarget);
@@ -86,6 +98,15 @@ extern "C" void LLVMInitializeTeeRISCTargetMC() {
 
   // Register the MC register info.
   TargetRegistry::RegisterMCRegInfo(TheTeeRISCTarget, createTeeRISCMCRegisterInfo);
+
+  // Register the MC Code Emitter
+  TargetRegistry::RegisterMCCodeEmitter(TheTeeRISCTarget, createTeeRISCMCCodeEmitter);
+
+  // Register the object streamer.
+  TargetRegistry::RegisterMCObjectStreamer(TheTeeRISCTarget, createMCStreamer);
+
+  // Register the asm backend.
+  TargetRegistry::RegisterMCAsmBackend(TheTeeRISCTarget,  createTeeRISCAsmBackend);
 
   // Register the MC subtarget info.
   TargetRegistry::RegisterMCSubtargetInfo(TheTeeRISCTarget, createTeeRISCMCSubtargetInfo);

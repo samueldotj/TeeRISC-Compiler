@@ -142,8 +142,10 @@ AddCodeToMergeInOperand(Record *R, BitsInit *BI, const std::string &VarName,
       ++NumberedOp;
 
     OpIdx = NumberedOp++;
+
+    if (OpIdx >= NumberOps) return;
   }
-  
+
   std::pair<unsigned, unsigned> SO = CGI.Operands.getSubOperandNumber(OpIdx);
   std::string &EncoderMethodName = CGI.Operands[SO.first].EncoderMethodName;
   

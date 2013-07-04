@@ -16,6 +16,7 @@
 #include "TeeRISC.h"
 #include "TeeRISCInstrInfo.h"
 #include "TeeRISCTargetMachine.h"
+#include "TeeRISCMCInstLower.cpp"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineInstr.h"
@@ -43,10 +44,11 @@ namespace {
     void printCCOperand(const MachineInstr *MI, int opNum, raw_ostream &OS);
 
     virtual void EmitInstruction(const MachineInstr *MI) {
-      SmallString<128> Str;
-      raw_svector_ostream OS(Str);
-      printInstruction(MI, OS);
-      OutStreamer.EmitRawText(OS.str());
+      TeeRISCMCInstLower MCInstLowering(OutContext, *this);
+      MCInst TmpInst;
+      
+      MCInstLowering.Lower(MI, TmpInst);
+      OutStreamer.EmitInstruction(TmpInst);
     }
     void printInstruction(const MachineInstr *MI, raw_ostream &OS);// autogen'd.
     static const char *getRegisterName(unsigned RegNo);

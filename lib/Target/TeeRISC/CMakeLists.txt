@@ -3,6 +3,7 @@ set(LLVM_TARGET_DEFINITIONS TeeRISC.td)
 
 tablegen(LLVM TeeRISCGenRegisterInfo.inc -gen-register-info)
 tablegen(LLVM TeeRISCGenInstrInfo.inc -gen-instr-info)
+tablegen(LLVM TeeRISCGenCodeEmitter.inc -gen-emitter)
 tablegen(LLVM TeeRISCGenAsmWriter.inc -gen-asm-writer)
 tablegen(LLVM TeeRISCGenDAGISel.inc -gen-dag-isel)
 tablegen(LLVM TeeRISCGenCallingConv.inc -gen-callingconv)
@@ -17,11 +18,14 @@ add_llvm_target(TeeRISCCodeGen
   TeeRISCISelLowering.cpp
   TeeRISCFrameLowering.cpp
   TeeRISCMachineFunctionInfo.cpp
+  TeeRISCMCInstLower.cpp
   TeeRISCRegisterInfo.cpp
   TeeRISCTargetMachine.cpp
   TeeRISCSelectionDAGInfo.cpp
   TeeRISCSubtarget.cpp
   )
+
+add_dependencies(LLVMSparcCodeGen intrinsics_gen)
 
 add_subdirectory(TargetInfo)
 add_subdirectory(MCTargetDesc)
