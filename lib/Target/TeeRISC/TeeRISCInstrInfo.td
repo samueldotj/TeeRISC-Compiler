@@ -91,9 +91,10 @@ def LD:     F3<16, (outs IntRegs:$dst), (ins MEM:$addr),
                 [(set i32:$dst, (load ADDR:$addr))]>;
 
 def ST:     F3<17, (outs), (ins MEM:$addr, IntRegs:$src), 
-                "*(uint32_t *)$addr = $src", 
+                "*(uint32_t *) $addr = $src", 
                 [(store i32:$src, ADDR:$addr)]>;
 
+let isCall = 1, Uses = [LR, R1] in
 def CALL:   F1<19, (outs), (ins IntRegs:$dst), 
                 "$dst()", 
                 [(TeeRISCCALL i32:$dst)]>;
@@ -101,7 +102,7 @@ def CALL:   F1<19, (outs), (ins IntRegs:$dst),
 //===----------------------------------------------------------------------===//
 // Pseudo Instructions
 //===----------------------------------------------------------------------===//
-let isReturn=1, isTerminator=1, hasDelaySlot=1, isCodeGenOnly=1,
+let isReturn=1, isTerminator=1, isCodeGenOnly=1,
     isBarrier=1, hasCtrlDep=1 in
 def RET:    Pseudo<(outs), (ins IntRegs:$dst),
                   "return $dst",
@@ -135,5 +136,3 @@ def : Pat<(i32 imm16:$val),
 // Arbitrary immediates.
 def : Pat<(i32 imm:$val),
           (OR_IMM (SETHIi (HI16 imm:$val)), (LO16 imm:$val))>;
-
-
