@@ -40,6 +40,7 @@ static inline bool isSpecialTeeRISCRegister(unsigned Reg) {
 /// TeeRISC::R0, return the number that it corresponds to (e.g. 0).
 static inline unsigned getTeeRISCRegisterNumbering(unsigned RegEnum) {
   switch (RegEnum) {
+    case TeeRISC::ZERO   :
     case TeeRISC::R0     : return 0;
     case TeeRISC::R1     : return 1;
     case TeeRISC::R2     : return 2;
@@ -54,7 +55,9 @@ static inline unsigned getTeeRISCRegisterNumbering(unsigned RegEnum) {
     case TeeRISC::R11    : return 11;
     case TeeRISC::R12    : return 12;
     case TeeRISC::R13    : return 13;
+    case TeeRISC::FP     :
     case TeeRISC::R14    : return 14;
+    case TeeRISC::SP     :
     case TeeRISC::R15    : return 15;
     case TeeRISC::R16    : return 16;
     case TeeRISC::R17    : return 17;
