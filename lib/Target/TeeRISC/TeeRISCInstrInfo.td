@@ -82,7 +82,11 @@ def OR:     F1<7, (outs IntRegs:$dst), (ins IntRegs:$b, IntRegs:$c),
                 "$dst = $b | $c", 
                 [(set i32:$dst, (or i32:$b, i32:$c))]>;
 
-def OR_IMM: F1<12, (outs IntRegs:$dst), (ins IntRegs:$b, i32imm:$c), 
+def ADD_IMM:F1<12, (outs IntRegs:$dst), (ins IntRegs:$b, i32imm:$c), 
+                "$dst = $b + $c", 
+                [(set i32:$dst, (add i32:$b, (i32 imm16:$c)))]>;
+
+def OR_IMM: F1<13, (outs IntRegs:$dst), (ins IntRegs:$b, i32imm:$c), 
                 "$dst = $b | $c", 
                 [(set i32:$dst, (or i32:$b, (i32 imm16:$c)))]>;
 

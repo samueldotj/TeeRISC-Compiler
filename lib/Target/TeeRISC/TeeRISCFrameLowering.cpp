@@ -76,8 +76,8 @@ void TeeRISCFrameLowering::emitPrologue(MachineFunction &MF) const {
   int RAOffset = TFI->getRAStackOffset();
 
   // Adjust stack : SP = SP - StackSize
-  BuildMI(MBB, MBBI, DL, TII.get(TeeRISC::ADD), TeeRISC::SP)
-      .addReg(TeeRISC::SP).addImm(-StackSize);
+  BuildMI(MBB, MBBI, DL, TII.get(TeeRISC::ADD_IMM), TeeRISC::SP)
+      .addReg(TeeRISC::SP).addImm(StackSize);
 
   // *(SP + RAOffset) = LR 
   if (MFI->adjustsStack()) {
@@ -131,7 +131,7 @@ void TeeRISCFrameLowering::emitEpilogue(MachineFunction &MF,
 
   // SP = SP + StackSize
   if (StackSize) {
-    BuildMI(MBB, MBBI, dl, TII.get(TeeRISC::ADD), TeeRISC::SP)
+    BuildMI(MBB, MBBI, dl, TII.get(TeeRISC::ADD_IMM), TeeRISC::SP)
       .addReg(TeeRISC::SP).addImm(StackSize);
   }
 }
