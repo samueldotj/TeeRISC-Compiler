@@ -25,7 +25,8 @@ add_llvm_target(TeeRISCCodeGen
   TeeRISCSubtarget.cpp
   )
 
-add_dependencies(LLVMSparcCodeGen intrinsics_gen)
+add_dependencies(LLVMTeeRISCCodeGen intrinsics_gen)
 
 add_subdirectory(TargetInfo)
 add_subdirectory(MCTargetDesc)
+add_subdirectory(InstPrinter)

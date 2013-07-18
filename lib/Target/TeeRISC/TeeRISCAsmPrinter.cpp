@@ -1,4 +1,4 @@
-//===-- TeeRISCAsmPrinter.cpp - TeeRISC LLVM assembly writer ------------------===//
+//===-- TeeRISCAsmPrinter.cpp - TeeRISC LLVM assembly writer ----------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -12,233 +12,142 @@
 //
 //===----------------------------------------------------------------------===//
 
-#define DEBUG_TYPE "asm-printer"
+#define DEBUG_TYPE "teerisc-asm-printer"
+
 #include "TeeRISC.h"
+#include "InstPrinter/TeeRISCInstPrinter.h"
+#include "MCTargetDesc/TeeRISCBaseInfo.h"
 #include "TeeRISCInstrInfo.h"
+#include "TeeRISCMCInstLower.h"
+#include "TeeRISCSubtarget.h"
 #include "TeeRISCTargetMachine.h"
-#include "TeeRISCMCInstLower.cpp"
-#include "llvm/ADT/SmallString.h"
 #include "llvm/CodeGen/AsmPrinter.h"
-#include "llvm/CodeGen/MachineInstr.h"
+#include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSymbol.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/Mangler.h"
+#include "llvm/Target/TargetLoweringObjectFile.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
+#include <cctype>
+
 using namespace llvm;
 
 namespace {
   class TeeRISCAsmPrinter : public AsmPrinter {
+    const TeeRISCSubtarget *Subtarget;
   public:
     explicit TeeRISCAsmPrinter(TargetMachine &TM, MCStreamer &Streamer)
-      : AsmPrinter(TM, Streamer) {}
+      : AsmPrinter(TM, Streamer) {
+      Subtarget = &TM.getSubtarget<TeeRISCSubtarget>();
+    }
 
     virtual const char *getPassName() const {
       return "TeeRISC Assembly Printer";
     }
 
-    void printOperand(const MachineInstr *MI, int opNum, raw_ostream &OS);
-    void printMemOperand(const MachineInstr *MI, int opNum, raw_ostream &OS,
-                         const char *Modifier = 0);
-    void printCCOperand(const MachineInstr *MI, int opNum, raw_ostream &OS);
+    void emitFrameDirective();
+    virtual void EmitFunctionBodyStart();
+    virtual void EmitFunctionBodyEnd();
+    virtual void EmitFunctionEntryLabel();
 
-    virtual void EmitInstruction(const MachineInstr *MI) {
-      TeeRISCMCInstLower MCInstLowering(OutContext, *this);
-      MCInst TmpInst;
-      
-      MCInstLowering.Lower(MI, TmpInst);
-      OutStreamer.EmitInstruction(TmpInst);
-    }
-    void printInstruction(const MachineInstr *MI, raw_ostream &OS);// autogen'd.
-    static const char *getRegisterName(unsigned RegNo);
-
-    bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
-                         unsigned AsmVariant, const char *ExtraCode,
-                         raw_ostream &O);
-    bool PrintAsmMemoryOperand(const MachineInstr *MI, unsigned OpNo,
-                               unsigned AsmVariant, const char *ExtraCode,
-                               raw_ostream &O);
-
-    bool printGetPCX(const MachineInstr *MI, unsigned OpNo, raw_ostream &OS);
-    
-    virtual bool isBlockOnlyReachableByFallthrough(const MachineBasicBlock *MBB)
-                       const;
-
-    virtual MachineLocation getDebugValueLocation(const MachineInstr *MI) const;
+    void printOperand(const MachineInstr *MI, int opNum, raw_ostream &O);
+    void EmitInstruction(const MachineInstr *MI);
   };
 } // end of anonymous namespace
 
-#include "TeeRISCGenAsmWriter.inc"
+// #include "TeeRISCGenAsmWriter.inc"
+
+/// Frame Directive
+void TeeRISCAsmPrinter::emitFrameDirective() {
+  if (!OutStreamer.hasRawTextSupport())
+    return;
+
+  const TargetRegisterInfo &RI = *TM.getRegisterInfo();
+  unsigned stkReg = RI.getFrameRegister(*MF);
+  unsigned retReg = RI.getRARegister();
+  unsigned stkSze = MF->getFrameInfo()->getStackSize();
+
+  OutStreamer.EmitRawText("\t.frame\t" +
+                          Twine(TeeRISCInstPrinter::getRegisterName(stkReg)) +
+                          ", " + Twine(stkSze) + ", " +
+                          Twine(TeeRISCInstPrinter::getRegisterName(retReg)));
+}
+
+void TeeRISCAsmPrinter::EmitFunctionEntryLabel() {
+  if (OutStreamer.hasRawTextSupport())
+    OutStreamer.EmitRawText("\t.entry\t" + Twine(CurrentFnSym->getName()));
+  AsmPrinter::EmitFunctionEntryLabel();
+}
+
+void TeeRISCAsmPrinter::EmitFunctionBodyStart() {
+  if (!OutStreamer.hasRawTextSupport())
+    return;
+
+  emitFrameDirective();
+}
+
+void TeeRISCAsmPrinter::EmitFunctionBodyEnd() {
+  if (OutStreamer.hasRawTextSupport())
+    OutStreamer.EmitRawText("\t.end\t" + Twine(CurrentFnSym->getName()));
+}
+
+//===----------------------------------------------------------------------===//
+void TeeRISCAsmPrinter::EmitInstruction(const MachineInstr *MI) {
+  TeeRISCMCInstLower MCInstLowering(OutContext, *this);
+
+  MCInst TmpInst;
+  MCInstLowering.Lower(MI, TmpInst);
+  OutStreamer.EmitInstruction(TmpInst);
+}
 
 void TeeRISCAsmPrinter::printOperand(const MachineInstr *MI, int opNum,
-                                   raw_ostream &O) {
-  const MachineOperand &MO = MI->getOperand (opNum);
+                                     raw_ostream &O) {
+  const MachineOperand &MO = MI->getOperand(opNum);
 
   switch (MO.getType()) {
   case MachineOperand::MO_Register:
-    O << "%" << StringRef(getRegisterName(MO.getReg())).lower();
+    O << TeeRISCInstPrinter::getRegisterName(MO.getReg());
     break;
 
   case MachineOperand::MO_Immediate:
-    O << (int)MO.getImm();
+    O << (int32_t)MO.getImm();
     break;
+
   case MachineOperand::MO_MachineBasicBlock:
     O << *MO.getMBB()->getSymbol();
     return;
+
   case MachineOperand::MO_GlobalAddress:
     O << *Mang->getSymbol(MO.getGlobal());
     break;
+
   case MachineOperand::MO_ExternalSymbol:
-    O << MO.getSymbolName();
+    O << *GetExternalSymbolSymbol(MO.getSymbolName());
     break;
+
+  case MachineOperand::MO_JumpTableIndex:
+    O << MAI->getPrivateGlobalPrefix() << "JTI" << getFunctionNumber()
+      << '_' << MO.getIndex();
+    break;
+
   case MachineOperand::MO_ConstantPoolIndex:
-    O << MAI->getPrivateGlobalPrefix() << "CPI" << getFunctionNumber() << "_"
-      << MO.getIndex();
+    O << MAI->getPrivateGlobalPrefix() << "CPI"
+      << getFunctionNumber() << "_" << MO.getIndex();
+    if (MO.getOffset())
+      O << "+" << MO.getOffset();
     break;
+
   default:
     llvm_unreachable("<unknown operand type>");
   }
 }
 
-void TeeRISCAsmPrinter::printMemOperand(const MachineInstr *MI, int opNum,
-                                      raw_ostream &O, const char *Modifier) {
-  printOperand(MI, opNum, O);
-
-  // If this is an ADD operand, emit it like normal operands.
-  if (Modifier && !strcmp(Modifier, "arith")) {
-    O << ", ";
-    printOperand(MI, opNum+1, O);
-    return;
-  }
-
-  if (MI->getOperand(opNum+1).isReg() &&
-      MI->getOperand(opNum+1).getReg() == TeeRISC::R11)
-    return;   // don't print "+%g0"
-  if (MI->getOperand(opNum+1).isImm() &&
-      MI->getOperand(opNum+1).getImm() == 0)
-    return;   // don't print "+0"
-
-  O << "+";
-  printOperand(MI, opNum+1, O);
-}
-
-bool TeeRISCAsmPrinter::printGetPCX(const MachineInstr *MI, unsigned opNum,
-                                  raw_ostream &O) {
-  std::string operand = "";
-  const MachineOperand &MO = MI->getOperand(opNum);
-  switch (MO.getType()) {
-  default: llvm_unreachable("Operand is not a register");
-  case MachineOperand::MO_Register:
-    assert(TargetRegisterInfo::isPhysicalRegister(MO.getReg()) &&
-           "Operand is not a physical register ");
-    operand = "%" + StringRef(getRegisterName(MO.getReg())).lower();
-    break;
-  }
-
-  unsigned mfNum = MI->getParent()->getParent()->getFunctionNumber();
-  unsigned bbNum = MI->getParent()->getNumber();
-
-  O << '\n' << ".LLGETPCH" << mfNum << '_' << bbNum << ":\n";
-  O << "\tcall\t.LLGETPC" << mfNum << '_' << bbNum << '\n' ;
-
-  O << "\t  sethi\t"
-    << "%hi(_GLOBAL_OFFSET_TABLE_+(.-.LLGETPCH" << mfNum << '_' << bbNum 
-    << ")), "  << operand << '\n' ;
-
-  O << ".LLGETPC" << mfNum << '_' << bbNum << ":\n" ;
-  O << "\tor\t" << operand  
-    << ", %lo(_GLOBAL_OFFSET_TABLE_+(.-.LLGETPCH" << mfNum << '_' << bbNum
-    << ")), " << operand << '\n';
-  O << "\tadd\t" << operand << ", %o7, " << operand << '\n'; 
-  
-  return true;
-}
-
-void TeeRISCAsmPrinter::printCCOperand(const MachineInstr *MI, int opNum,
-                                     raw_ostream &O) {
-  int CC = (int)MI->getOperand(opNum).getImm();
-  O << TeeRISCCondCodeToString((TeeRISCCC::CondCodes)CC);
-}
-
-/// PrintAsmOperand - Print out an operand for an inline asm expression.
-///
-bool TeeRISCAsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
-                                      unsigned AsmVariant,
-                                      const char *ExtraCode,
-                                      raw_ostream &O) {
-  if (ExtraCode && ExtraCode[0]) {
-    if (ExtraCode[1] != 0) return true; // Unknown modifier.
-
-    switch (ExtraCode[0]) {
-    default:
-      // See if this is a generic print operand
-      return AsmPrinter::PrintAsmOperand(MI, OpNo, AsmVariant, ExtraCode, O);
-    case 'r':
-     break;
-    }
-  }
-
-  printOperand(MI, OpNo, O);
-
-  return false;
-}
-
-bool TeeRISCAsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
-                                            unsigned OpNo, unsigned AsmVariant,
-                                            const char *ExtraCode,
-                                            raw_ostream &O) {
-  if (ExtraCode && ExtraCode[0])
-    return true;  // Unknown modifier
-
-  O << '[';
-  printMemOperand(MI, OpNo, O);
-  O << ']';
-
-  return false;
-}
-
-/// isBlockOnlyReachableByFallthough - Return true if the basic block has
-/// exactly one predecessor and the control transfer mechanism between
-/// the predecessor and this block is a fall-through.
-///
-/// This overrides AsmPrinter's implementation to handle delay slots.
-bool TeeRISCAsmPrinter::
-isBlockOnlyReachableByFallthrough(const MachineBasicBlock *MBB) const {
-  // If this is a landing pad, it isn't a fall through.  If it has no preds,
-  // then nothing falls through to it.
-  if (MBB->isLandingPad() || MBB->pred_empty())
-    return false;
-  
-  // If there isn't exactly one predecessor, it can't be a fall through.
-  MachineBasicBlock::const_pred_iterator PI = MBB->pred_begin(), PI2 = PI;
-  ++PI2;
-  if (PI2 != MBB->pred_end())
-    return false;
-  
-  // The predecessor has to be immediately before this block.
-  const MachineBasicBlock *Pred = *PI;
-  
-  if (!Pred->isLayoutSuccessor(MBB))
-    return false;
-  
-  // Check if the last terminator is an unconditional branch.
-  MachineBasicBlock::const_iterator I = Pred->end();
-  while (I != Pred->begin() && !(--I)->isTerminator())
-    ; // Noop
-  return I == Pred->end() || !I->isBarrier();
-}
-
-MachineLocation TeeRISCAsmPrinter::
-getDebugValueLocation(const MachineInstr *MI) const {
-  assert(MI->getNumOperands() == 4 && "Invalid number of operands!");
-  assert(MI->getOperand(0).isReg() && MI->getOperand(1).isImm() &&
-         "Unexpected MachineOperand types");
-  return MachineLocation(MI->getOperand(0).getReg(),
-                         MI->getOperand(1).getImm());
-}
-
 // Force static initialization.
-extern "C" void LLVMInitializeTeeRISCAsmPrinter() { 
+extern "C" void LLVMInitializeTeeRISCAsmPrinter() {
   RegisterAsmPrinter<TeeRISCAsmPrinter> X(TheTeeRISCTarget);
 }

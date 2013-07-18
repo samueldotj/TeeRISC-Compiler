@@ -44,10 +44,18 @@ def : Proc<"generic", []>;
 def : Proc<"v1", []>;
 
 //===----------------------------------------------------------------------===//
+// Instruction Descriptions
+//===----------------------------------------------------------------------===//
+def TeeRISCAsmWriter : AsmWriter {
+  string AsmWriterClassName  = "InstPrinter";
+  bit isMCAsmWriter = 1;
+}
+
+//===----------------------------------------------------------------------===//
 // Declare the target which we are implementing
 //===----------------------------------------------------------------------===//
-
 def TeeRISC : Target {
   // Pull in Instruction Info:
   let InstructionSet = TeeRISCInstrInfo;
+  let AssemblyWriters = [TeeRISCAsmWriter];
 }

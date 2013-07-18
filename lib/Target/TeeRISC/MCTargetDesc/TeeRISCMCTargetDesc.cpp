@@ -13,6 +13,7 @@
 
 #include "TeeRISCMCTargetDesc.h"
 #include "TeeRISCMCAsmInfo.h"
+#include "InstPrinter/TeeRISCInstPrinter.h"
 #include "llvm/MC/MCCodeGenInfo.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
@@ -86,6 +87,17 @@ static MCStreamer *createMCStreamer(const Target &T, StringRef TT,
   return createELFStreamer(Ctx, MAB, _OS, _Emitter, RelaxAll, NoExecStack);
 }
 
+static MCInstPrinter *createTeeRISCMCInstPrinter(const Target &T,
+                                                 unsigned SyntaxVariant,
+                                                 const MCAsmInfo &MAI,
+                                                 const MCInstrInfo &MII,
+                                                 const MCRegisterInfo &MRI,
+                                                 const MCSubtargetInfo &STI) {
+  if (SyntaxVariant == 0)
+    return new TeeRISCInstPrinter(MAI, MII, MRI);
+  return 0;
+}
+
 extern "C" void LLVMInitializeTeeRISCTargetMC() {
   // Register the MC asm info.
   RegisterMCAsmInfo<TeeRISCELFMCAsmInfo> X(TheTeeRISCTarget);
@@ -111,5 +123,7 @@ extern "C" void LLVMInitializeTeeRISCTargetMC() {
   // Register the MC subtarget info.
   TargetRegistry::RegisterMCSubtargetInfo(TheTeeRISCTarget, createTeeRISCMCSubtargetInfo);
 
+    // Register the MCInstPrinter.
+  TargetRegistry::RegisterMCInstPrinter(TheTeeRISCTarget, createTeeRISCMCInstPrinter);
 }
 

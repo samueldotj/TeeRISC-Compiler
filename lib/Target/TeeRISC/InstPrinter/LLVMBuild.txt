@@ -1,4 +1,4 @@
-;===- ./lib/Target/TeeRISC/MCTargetDesc/LLVMBuild.txt ----------*- Conf -*--===;
+;===- ./lib/Target/TeeRISC/InstPrinter/LLVMBuild.txt ----------*- Conf -*--===;
 ;
 ;                     The LLVM Compiler Infrastructure
 ;
@@ -17,7 +17,7 @@
 
 [component_0]
 type = Library
-name = TeeRISCDesc
+name = TeeRISCAsmPrinter
 parent = TeeRISC
-required_libraries = TeeRISCAsmPrinter TeeRISCInfo MC  Support
+required_libraries = MC Support
 add_to_library_groups = TeeRISC

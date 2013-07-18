@@ -15,9 +15,9 @@ TARGET = TeeRISC
 BUILT_SOURCES = TeeRISCGenRegisterInfo.inc TeeRISCGenInstrInfo.inc \
 		TeeRISCGenAsmWriter.inc TeeRISCGenDAGISel.inc \
 		TeeRISCGenSubtargetInfo.inc TeeRISCGenCallingConv.inc \
-		TeeRISCSubtargetInfo.inc
+		TeeRISCSubtargetInfo.inc TeeRISCGenAsmWriter.inc
 
-DIRS = TargetInfo MCTargetDesc
+DIRS = InstPrinter TargetInfo MCTargetDesc
 
 include $(LEVEL)/Makefile.common
 
