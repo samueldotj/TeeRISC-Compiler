@@ -64,25 +64,36 @@ public:
   }
 
   void relaxInstruction(const MCInst &Inst, MCInst &Res) const {
+      assert(0);
   }
 
-  bool writeNopData(uint64_t Count, MCObjectWriter *OW) const;
+  /// WriteNopData - Write an (optimal) nop sequence of Count bytes
+  bool writeNopData(uint64_t Count, MCObjectWriter *OW) const {
+
+/* TODO - remove the following
+   Somehow function is not aligning to 4 bytes(Although all instructions are 4 bytes).
+   Debugging why it is not aligned is difficult without Disassembler
+   So add disassembler and then fix this issue and remove the following code.
+ */
+#if 1
+    for (uint64_t i = 0; i < Count; i ++)
+      OW->Write8(0);
+    return true;
+#endif
+
+    if ((Count % 4) != 0)
+      return false;
+
+    for (uint64_t i = 0; i < Count; i += 4)
+      OW->Write32(0x00000000);
+
+    return true;
+  }
 
   unsigned getPointerSize() const {
     return 4;
   }
 };
-
-/// WriteNopData - Write an (optimal) nop sequence of Count bytes
-bool TeeRISCAsmBackend::writeNopData(uint64_t Count, MCObjectWriter *OW) const {
-  if ((Count % 4) != 0)
-    return false;
-
-  for (uint64_t i = 0; i < Count; i += 4)
-      OW->Write32(0x00000000);
-
-  return true;
-}
 } // end anonymous namespace
 
 namespace {
