@@ -42,8 +42,8 @@ class TeeRISCInst<dag outs, dag ins, string asmstr, list<dag> pattern, Format f>
   Format Form = f;
 
   bits<6> Opcode = 0;
-  bits<5> ra = 0;
-  bits<5> rb = 0;
+  bits<5> rD;
+  bits<5> rS1;
 
   // Attributes specific to TeeRISC instructions...
   bits<4> FormBits = Form.Value;
@@ -57,14 +57,19 @@ class TeeRISCInst<dag outs, dag ins, string asmstr, list<dag> pattern, Format f>
   let Inst{31-26} = Opcode;
 
   // The following registers are present in all formats
-  let Inst{25-21} = ra;
-  let Inst{20-16} = rb;
+  let Inst{25-21} = rD;
+  let Inst{20-16} = rS1;
+  let Inst{0-15} = 0;
 
   let OutOperandList = outs;
   let InOperandList  = ins;
 
   let AsmString   = asmstr;
   let Pattern     = pattern;
+
+  // If the instruction is marked as a pseudo, set isCodeGenOnly so that the
+  // assembler and disassmbler ignore it.
+  let isCodeGenOnly = !eq(!cast<string>(Form), "Pseudo");
 }
 
 //===----------------------------------------------------------------------===//
@@ -74,14 +79,14 @@ class TeeRISCInst<dag outs, dag ins, string asmstr, list<dag> pattern, Format f>
 class F1<bits<6> op, dag outs, dag ins, string asmstr, list<dag> pattern>:
       TeeRISCInst<outs, ins, asmstr, pattern, Form1>
 {
-  bits<5> rc;
-  bits<5> rd;
+  bits<5> rS2;
+  bits<5> rExtra;
   bits<6> cond;
 
   let Opcode = op;
 
-  let Inst{15-11} = rc;
-  let Inst{10-6}  = rd;
+  let Inst{15-11} = rS2;
+  let Inst{10-6}  = rExtra;
   let Inst{5-0}   = cond;
 }
 
@@ -96,7 +101,7 @@ class F2<bits<6> op, dag outs, dag ins, string asmstr, list<dag> pattern>:
 
   let Opcode = op;
 
-  let Inst{15-0}  = imm16;
+  let Inst{15-0} = imm16;
 }
 
 //===----------------------------------------------------------------------===//
@@ -120,5 +125,4 @@ class F3<bits<6> op, dag outs, dag ins, string asmstr, list<dag> pattern>:
 //===----------------------------------------------------------------------===//
 class Pseudo<dag outs, dag ins, string asmstr, list<dag> pattern>:
       TeeRISCInst<outs, ins, asmstr, pattern, FormP>;
-
 

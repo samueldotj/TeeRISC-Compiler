@@ -74,34 +74,34 @@ def MEM:    Operand<iPTR> {
 //===----------------------------------------------------------------------===// 
 // Instructions
 //===----------------------------------------------------------------------===//
-def ADD:    F1<1, (outs IntRegs:$dst), (ins IntRegs:$b, IntRegs:$c), 
-                "$dst = $b + $c", 
-                [(set i32:$dst, (add i32:$b, i32:$c))]>;
+def ADD:    F1<1, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+                "$rD = $rS1 + $rS2", 
+                [(set i32:$rD, (add i32:$rS1, i32:$rS2))]>;
 
-def OR:     F1<7, (outs IntRegs:$dst), (ins IntRegs:$b, IntRegs:$c), 
-                "$dst = $b | $c", 
-                [(set i32:$dst, (or i32:$b, i32:$c))]>;
+def OR:     F1<7, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+                "$rD = $rS1 | $rS2", 
+                [(set i32:$rD, (or i32:$rS1, i32:$rS2))]>;
 
-def ADD_IMM:F1<12, (outs IntRegs:$dst), (ins IntRegs:$b, i32imm:$c), 
-                "$dst = $b + $c", 
-                [(set i32:$dst, (add i32:$b, (i32 imm16:$c)))]>;
+def ADD_IMM:F2<12, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16), 
+                "$rD = $rS1 + $imm16", 
+                [(set i32:$rD, (add i32:$rS1, (i32 imm16:$imm16)))]>;
 
-def OR_IMM: F1<13, (outs IntRegs:$dst), (ins IntRegs:$b, i32imm:$c), 
-                "$dst = $b | $c", 
-                [(set i32:$dst, (or i32:$b, (i32 imm16:$c)))]>;
+def OR_IMM: F2<13, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$rS2), 
+                "$rD = $rS1 | $rS2", 
+                [(set i32:$rD, (or i32:$rS1, (i32 imm16:$rS2)))]>;
 
-def LD:     F3<16, (outs IntRegs:$dst), (ins MEM:$addr), 
-                "$dst = *(uint32_t *) $addr", 
-                [(set i32:$dst, (load ADDR:$addr))]>;
+def LD:     F3<16, (outs IntRegs:$rD), (ins MEM:$rS1), 
+                "$rD = *(uint32_t *) $rS1", 
+                [(set i32:$rD, (load ADDR:$rS1))]>;
 
-def ST:     F3<17, (outs), (ins MEM:$addr, IntRegs:$src), 
-                "*(uint32_t *) $addr = $src", 
-                [(store i32:$src, ADDR:$addr)]>;
+def ST:     F3<17, (outs), (ins MEM:$rD, IntRegs:$rS1), 
+                "*(uint32_t *) $rD = $rS1", 
+                [(store i32:$rS1, ADDR:$rD)]>;
 
 let isCall = 1, Uses = [LR, R1] in
-def CALL:   F1<19, (outs), (ins IntRegs:$dst), 
-                "$dst()", 
-                [(TeeRISCCALL i32:$dst)]>;
+def CALL:   F1<19, (outs), (ins IntRegs:$rD), 
+                "$rD()", 
+                [(TeeRISCCALL i32:$rD)]>;
 
 //===----------------------------------------------------------------------===//
 // Pseudo Instructions
