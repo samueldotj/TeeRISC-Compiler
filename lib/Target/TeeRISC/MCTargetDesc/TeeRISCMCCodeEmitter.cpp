@@ -56,6 +56,19 @@ public:
     llvm_unreachable("TeeRISCMCCodeEmitter::GetTeeRISCRegNum() not yet implemented.");
   }
 
+  void EmitByte(unsigned char C, raw_ostream &OS) const {
+    OS << (char)C;
+  }
+
+  void EmitInstruction(uint32_t Val, raw_ostream &OS) const {
+    // Output the constant in little endian byte order.
+    for (unsigned i = 0; i != 4; ++i) {
+      EmitByte(Val & 0xff, OS);
+      Val >>= 8;
+    }
+  }
+
+
   void EncodeInstruction(const MCInst &MI, raw_ostream &OS,
                          SmallVectorImpl<MCFixup> &Fixups) const;
 };
@@ -85,13 +98,13 @@ unsigned TeeRISCMCCodeEmitter::getMachineOpValue(const MCInst &MI,
 #endif
   llvm_unreachable(0);
 }
-
+#include <stdio.h>
 void TeeRISCMCCodeEmitter::EncodeInstruction(const MCInst &MI, raw_ostream &OS,
                                              SmallVectorImpl<MCFixup> &Fixups) const {
   unsigned Opcode = MI.getOpcode();
   MCNumEmitted++;
 
-  OS << getBinaryCodeForInstr(MI);
+  EmitInstruction(getBinaryCodeForInstr(MI), OS);
 }
 
 // FIXME: These #defines shouldn't be necessary. Instead, tblgen should
