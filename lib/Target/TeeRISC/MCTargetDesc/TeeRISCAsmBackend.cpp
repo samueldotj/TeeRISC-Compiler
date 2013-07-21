@@ -69,18 +69,6 @@ public:
 
   /// WriteNopData - Write an (optimal) nop sequence of Count bytes
   bool writeNopData(uint64_t Count, MCObjectWriter *OW) const {
-
-/* TODO - remove the following
-   Somehow function is not aligning to 4 bytes(Although all instructions are 4 bytes).
-   Debugging why it is not aligned is difficult without Disassembler
-   So add disassembler and then fix this issue and remove the following code.
- */
-#if 1
-    for (uint64_t i = 0; i < Count; i ++)
-      OW->Write8(0);
-    return true;
-#endif
-
     if ((Count % 4) != 0)
       return false;
 
