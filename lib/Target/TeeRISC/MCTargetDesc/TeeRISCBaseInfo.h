@@ -83,7 +83,7 @@ static inline unsigned getTeeRISCRegisterNumbering(unsigned RegEnum) {
 /// TeeRISC::R0, return the number that it corresponds to (e.g. 0).
 static inline unsigned getTeeRISCRegisterFromNumbering(unsigned Reg) {
   switch (Reg) {
-    case 0  : return TeeRISC::R0;
+    case 0  : return TeeRISC::ZERO;
     case 1  : return TeeRISC::R1;
     case 2  : return TeeRISC::R2;
     case 3  : return TeeRISC::R3;
@@ -97,10 +97,10 @@ static inline unsigned getTeeRISCRegisterFromNumbering(unsigned Reg) {
     case 11 : return TeeRISC::R11;
     case 12 : return TeeRISC::R12;
     case 13 : return TeeRISC::R13;
-    case 14 : return TeeRISC::R14;
-    case 15 : return TeeRISC::R15;
-    case 16 : return TeeRISC::R16;
-    case 17 : return TeeRISC::R17;
+    case 14 : return TeeRISC::FP;
+    case 15 : return TeeRISC::SP;
+    case 16 : return TeeRISC::IP;
+    case 17 : return TeeRISC::LR;
     case 18 : return TeeRISC::R18;
     case 19 : return TeeRISC::R19;
     case 20 : return TeeRISC::R20;

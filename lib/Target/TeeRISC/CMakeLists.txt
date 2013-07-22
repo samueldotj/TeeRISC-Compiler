@@ -9,6 +9,8 @@ tablegen(LLVM TeeRISCGenDAGISel.inc -gen-dag-isel)
 tablegen(LLVM TeeRISCGenCallingConv.inc -gen-callingconv)
 tablegen(LLVM TeeRISCGenSubtargetInfo.inc -gen-subtarget)
 
+tablegen(LLVM TeeRISCGenDisassemblerTables.inc -gen-disassembler)
+
 add_public_tablegen_target(TeeRISCCommonTableGen)
 
 add_llvm_target(TeeRISCCodeGen
@@ -27,6 +29,7 @@ add_llvm_target(TeeRISCCodeGen
 
 add_dependencies(LLVMTeeRISCCodeGen intrinsics_gen)
 
-add_subdirectory(TargetInfo)
-add_subdirectory(MCTargetDesc)
 add_subdirectory(InstPrinter)
+add_subdirectory(Disassembler)
+add_subdirectory(MCTargetDesc)
+add_subdirectory(TargetInfo)

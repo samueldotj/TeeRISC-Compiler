@@ -70,6 +70,10 @@ class TeeRISCInst<dag outs, dag ins, string asmstr, list<dag> pattern, Format f>
   // If the instruction is marked as a pseudo, set isCodeGenOnly so that the
   // assembler and disassmbler ignore it.
   let isCodeGenOnly = !eq(!cast<string>(Form), "Pseudo");
+
+  // TableGen needs this field while generating Disassembler Tables.
+  // TODO - figure out how to get rid of this field.
+  field bits<32> SoftFail = 0;
 }
 
 //===----------------------------------------------------------------------===//
@@ -118,6 +122,8 @@ class F3<bits<6> op, dag outs, dag ins, string asmstr, list<dag> pattern>:
 
   let Inst{15-2} = imm14;
   let Inst{1-0}  = bit_width;
+
+  let DecoderMethod = "DecodeMem";
 }
 
 //===----------------------------------------------------------------------===//

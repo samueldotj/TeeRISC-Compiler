@@ -1,4 +1,4 @@
-;===- ./lib/Target/TeeRISC/LLVMBuild.txt -----------------------*- Conf -*--===;
+;===- ./lib/Target/TeeRISC/Disassembler/LLVMBuild.txt ---------*- Conf -*--===;
 ;
 ;                     The LLVM Compiler Infrastructure
 ;
@@ -15,22 +15,9 @@
 ;
 ;===------------------------------------------------------------------------===;
 
-[common]
-subdirectories = InstPrinter Disassembler MCTargetDesc TargetInfo 
-
 [component_0]
-type = TargetGroup
-name = TeeRISC
-parent = Target
-#has_asmparser = 1
-has_asmprinter = 1
-
-has_disassembler = 1
-#has_jit = 1
-
-[component_1]
 type = Library
-name = TeeRISCCodeGen
+name = TeeRISCDisassembler
 parent = TeeRISC
-required_libraries = AsmPrinter CodeGen Core MC SelectionDAG TeeRISCAsmPrinter TeeRISCDesc TeeRISCInfo Support Target
+required_libraries = MC Support TeeRISCInfo
 add_to_library_groups = TeeRISC
