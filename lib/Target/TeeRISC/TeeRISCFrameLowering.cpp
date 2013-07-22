@@ -77,22 +77,22 @@ void TeeRISCFrameLowering::emitPrologue(MachineFunction &MF) const {
 
   // Adjust stack : SP = SP - StackSize
   BuildMI(MBB, MBBI, DL, TII.get(TeeRISC::ADD_IMM), TeeRISC::SP)
-      .addReg(TeeRISC::SP).addImm(StackSize);
+          .addReg(TeeRISC::SP).addImm(StackSize);
 
   // *(SP + RAOffset) = LR 
   if (MFI->adjustsStack()) {
-    BuildMI(MBB, MBBI, DL, TII.get(TeeRISC::ST))
-        .addReg(TeeRISC::SP).addReg(TeeRISC::LR).addImm(RAOffset);
+    BuildMI(MBB, MBBI, DL, TII.get(TeeRISC::ST), TeeRISC::SP)
+            .addReg(TeeRISC::LR).addImm(RAOffset);
   }
 
   if (hasFP(MF)) {
     // *(SP + FPOffset) = FP
-    BuildMI(MBB, MBBI, DL, TII.get(TeeRISC::ST))
-      .addReg(TeeRISC::SP).addReg(TeeRISC::FP).addImm(FPOffset);
+    BuildMI(MBB, MBBI, DL, TII.get(TeeRISC::ST), TeeRISC::SP)
+            .addImm(FPOffset).addReg(TeeRISC::FP);
 
     // FP = SP
     BuildMI(MBB, MBBI, DL, TII.get(TeeRISC::ADD), TeeRISC::FP)
-      .addReg(TeeRISC::SP).addReg(TeeRISC::ZERO);
+            .addReg(TeeRISC::SP).addReg(TeeRISC::ZERO);
   }
 }
 
@@ -113,17 +113,17 @@ void TeeRISCFrameLowering::emitEpilogue(MachineFunction &MF,
   if (hasFP(MF)) {
     // SP = FP 
     BuildMI(MBB, MBBI, dl, TII.get(TeeRISC::ADD), TeeRISC::SP)
-      .addReg(TeeRISC::FP).addReg(TeeRISC::ZERO);
+            .addReg(TeeRISC::FP).addReg(TeeRISC::ZERO);
 
     // FP = *(SP + FPOffset)
     BuildMI(MBB, MBBI, dl, TII.get(TeeRISC::LD), TeeRISC::FP)
-      .addReg(TeeRISC::SP).addImm(FPOffset);
+            .addReg(TeeRISC::SP).addImm(FPOffset);
   }
 
   // LR = *(R1 + RAOffset)
   if (MFI->adjustsStack()) {
     BuildMI(MBB, MBBI, dl, TII.get(TeeRISC::LD), TeeRISC::LR)
-      .addReg(TeeRISC::SP).addImm(RAOffset);
+            .addReg(TeeRISC::SP).addImm(RAOffset);
   }
 
   // Get the number of bytes from FrameInfo
@@ -132,7 +132,7 @@ void TeeRISCFrameLowering::emitEpilogue(MachineFunction &MF,
   // SP = SP + StackSize
   if (StackSize) {
     BuildMI(MBB, MBBI, dl, TII.get(TeeRISC::ADD_IMM), TeeRISC::SP)
-      .addReg(TeeRISC::SP).addImm(StackSize);
+            .addReg(TeeRISC::SP).addImm(StackSize);
   }
 }
 
