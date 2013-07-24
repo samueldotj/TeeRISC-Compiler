@@ -117,17 +117,15 @@ static DecodeStatus DecodeIntRegsRegisterClass(MCInst &Inst, unsigned RegNo,
 static DecodeStatus DecodeMem(MCInst &Inst, unsigned Insn,
                               uint64_t Address, const void *Decoder) {
   unsigned rD = fieldFromInstruction(Insn, 21, 5);
-  unsigned rS1 = fieldFromInstruction(Insn, 16, 5);
-  //int imm14 = SignExtend32<14>((Insn >> 2) & 0xffff);
-  int imm14 = fieldFromInstruction(Insn, 0, 16);
+  unsigned rS = fieldFromInstruction(Insn, 16, 5);
+  int imm14 = SignExtend32<14>((Insn >> 2) & 0xffff);
 
   rD = getTeeRISCRegisterFromNumbering(rD);
-  rS1 = getTeeRISCRegisterFromNumbering(rS1);
+  rS = getTeeRISCRegisterFromNumbering(rS);
 
   Inst.addOperand(MCOperand::CreateReg(rD));
-  
+  Inst.addOperand(MCOperand::CreateReg(rS));
   Inst.addOperand(MCOperand::CreateImm(imm14));
-  Inst.addOperand(MCOperand::CreateReg(rS1));
 
   return MCDisassembler::Success;
 }
