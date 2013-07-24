@@ -34,8 +34,7 @@ class TeeRISCMCCodeEmitter : public MCCodeEmitter {
   const MCInstrInfo &MCII;
 
 public:
-  TeeRISCMCCodeEmitter(const MCInstrInfo &mcii, const MCSubtargetInfo &sti,
-                      MCContext &ctx): MCII(mcii) {
+  TeeRISCMCCodeEmitter(const MCInstrInfo &mcii, const MCSubtargetInfo &sti, MCContext &ctx): MCII(mcii) {
   }
 
   ~TeeRISCMCCodeEmitter() {}
@@ -50,6 +49,8 @@ public:
   unsigned getMachineOpValue(const MCInst &MI, unsigned OpIdx) const {
     return getMachineOpValue(MI, MI.getOperand(OpIdx));
   }
+
+  unsigned getMemEncoding(const MCInst &MI, unsigned OpNo) const;
 
   static unsigned GetTeeRISCRegNum(const MCOperand &MO) {
     // FIXME: getTeeRISCRegisterNumbering() is sufficient?
@@ -68,7 +69,6 @@ public:
     }
   }
 
-
   void EncodeInstruction(const MCInst &MI, raw_ostream &OS,
                          SmallVectorImpl<MCFixup> &Fixups) const;
 };
@@ -77,19 +77,19 @@ public:
 
 
 MCCodeEmitter *llvm::createTeeRISCMCCodeEmitter(const MCInstrInfo &MCII,
-                                               const MCRegisterInfo &MRI,
-                                               const MCSubtargetInfo &STI,
-                                               MCContext &Ctx) {
+                                                const MCRegisterInfo &MRI,
+                                                const MCSubtargetInfo &STI,
+                                                MCContext &Ctx) {
   return new TeeRISCMCCodeEmitter(MCII, STI, Ctx);
 }
 
 /// getMachineOpValue - Return binary encoding of operand. If the machine
 /// operand requires relocation, record the relocation and return zero.
 unsigned TeeRISCMCCodeEmitter::getMachineOpValue(const MCInst &MI,
-                                             const MCOperand &MO) const {
+                                                 const MCOperand &MO) const {
   if (MO.isReg())
     return getTeeRISCRegisterNumbering(MO.getReg());
-  if (MO.isImm())
+  if (MO.isImm()) 
     return static_cast<unsigned>(MO.getImm());
   if (MO.isExpr())
     return 0; // The relocation has already been recorded at this point.
@@ -98,7 +98,22 @@ unsigned TeeRISCMCCodeEmitter::getMachineOpValue(const MCInst &MI,
 #endif
   llvm_unreachable(0);
 }
-#include <stdio.h>
+
+/// getMemEncoding - Return binary encoding of memory related operand.
+unsigned TeeRISCMCCodeEmitter::getMemEncoding(const MCInst &MI, unsigned OpNo) const {
+  // Base register is encoded in bits 20-16, offset is encoded in bits 15-2.
+  //assert(MI.getOperand(OpNo).isReg());
+  
+  const MCOperand &RegMO = MI.getOperand(OpNo).isReg() ? MI.getOperand(OpNo) : MI.getOperand(OpNo + 1);
+  const MCOperand &OffsetMO = MI.getOperand(OpNo).isImm() ? MI.getOperand(OpNo) : MI.getOperand(OpNo + 1);
+
+  assert(RegMO.isReg() && OffsetMO.isImm());
+
+  unsigned Register = getMachineOpValue(MI, RegMO);
+  unsigned Offset = getMachineOpValue(MI, OffsetMO) & 0xFFFF;
+  return (Register << 14)  | Offset;
+}
+
 void TeeRISCMCCodeEmitter::EncodeInstruction(const MCInst &MI, raw_ostream &OS,
                                              SmallVectorImpl<MCFixup> &Fixups) const {
   unsigned Opcode = MI.getOpcode();
