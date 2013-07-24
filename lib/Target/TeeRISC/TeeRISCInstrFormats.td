@@ -42,9 +42,7 @@ class TeeRISCInst<dag outs, dag ins, string asmstr, list<dag> pattern, Format f>
   Format Form = f;
 
   bits<6> Opcode = 0;
-  bits<5> rD;
-  bits<5> rS1;
-
+   
   // Attributes specific to TeeRISC instructions...
   bits<4> FormBits = Form.Value;
 
@@ -55,11 +53,6 @@ class TeeRISCInst<dag outs, dag ins, string asmstr, list<dag> pattern, Format f>
 
   // Top 6 bits are the 'opcode' field
   let Inst{31-26} = Opcode;
-
-  // The following registers are present in all formats
-  let Inst{25-21} = rD;
-  let Inst{20-16} = rS1;
-  let Inst{0-15} = 0;
 
   let OutOperandList = outs;
   let InOperandList  = ins;
@@ -80,15 +73,18 @@ class TeeRISCInst<dag outs, dag ins, string asmstr, list<dag> pattern, Format f>
 // Format 1 instruction class in TeeRISC : <|opcode|ra|rb|rc|rd|cond|>
 //===----------------------------------------------------------------------===//
 
-class F1<bits<6> op, dag outs, dag ins, string asmstr, list<dag> pattern>:
+class F1<bits<6> op, bits<5> rExtra, bits<6> cond, 
+         dag outs, dag ins, string asmstr, list<dag> pattern>:
       TeeRISCInst<outs, ins, asmstr, pattern, Form1>
 {
+  bits<5> rD;
+  bits<5> rS1;
   bits<5> rS2;
-  bits<5> rExtra;
-  bits<6> cond;
 
   let Opcode = op;
 
+  let Inst{25-21} = rD;
+  let Inst{20-16} = rS1;
   let Inst{15-11} = rS2;
   let Inst{10-6}  = rExtra;
   let Inst{5-0}   = cond;
@@ -101,10 +97,14 @@ class F1<bits<6> op, dag outs, dag ins, string asmstr, list<dag> pattern>:
 class F2<bits<6> op, dag outs, dag ins, string asmstr, list<dag> pattern>: 
       TeeRISCInst<outs, ins, asmstr, pattern, Form2>
 {
+  bits<5> rD;
+  bits<5> rS1;
   bits<16> imm16;
 
   let Opcode = op;
 
+  let Inst{25-21} = rD;
+  let Inst{20-16} = rS1;
   let Inst{15-0} = imm16;
 }
 
@@ -112,15 +112,16 @@ class F2<bits<6> op, dag outs, dag ins, string asmstr, list<dag> pattern>:
 // Format 3 instruction class in TeeRISC : <|opcode|ra|rb|imm|bw|>
 //===----------------------------------------------------------------------===//
 
-class F3<bits<6> op, dag outs, dag ins, string asmstr, list<dag> pattern>:
+class F3<bits<6> op, bits<2> bit_width, dag outs, dag ins, string asmstr, list<dag> pattern>:
       TeeRISCInst<outs, ins, asmstr, pattern, Form3>
 {
-  bits<14> imm14;
-  bits<2>  bit_width;
-
+  bits<5> rD;
+  bits<19> addr;
+   
   let Opcode = op;
 
-  let Inst{15-2} = imm14;
+  let Inst{25-21} = rD;
+  let Inst{20-2} = addr;
   let Inst{1-0}  = bit_width;
 
   let DecoderMethod = "DecodeMem";
