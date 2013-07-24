@@ -87,8 +87,8 @@ void TeeRISCFrameLowering::emitPrologue(MachineFunction &MF) const {
 
   if (hasFP(MF)) {
     // *(SP + FPOffset) = FP
-    BuildMI(MBB, MBBI, DL, TII.get(TeeRISC::ST), TeeRISC::SP)
-            .addImm(FPOffset).addReg(TeeRISC::FP);
+    BuildMI(MBB, MBBI, DL, TII.get(TeeRISC::ST), TeeRISC::FP)
+            .addReg(TeeRISC::SP).addImm(FPOffset);
 
     // FP = SP
     BuildMI(MBB, MBBI, DL, TII.get(TeeRISC::ADD), TeeRISC::FP)
