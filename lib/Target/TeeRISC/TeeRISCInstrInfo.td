@@ -83,6 +83,10 @@ def ADD:    F1<1, 0, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$
                 "$rD = $rS1 + $rS2", 
                 [(set IntRegs:$rD, (add IntRegs:$rS1, IntRegs:$rS2))]>;
 
+def SUB:    F1<2, 0, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+                "$rD = $rS1 - $rS2", 
+                [(set IntRegs:$rD, (sub IntRegs:$rS1, IntRegs:$rS2))]>;
+
 //===----------------------------------------------------------------------===// 
 // Logical Operations
 //===----------------------------------------------------------------------===//
