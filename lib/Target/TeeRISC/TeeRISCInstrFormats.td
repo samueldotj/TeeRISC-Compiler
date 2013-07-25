@@ -88,6 +88,16 @@ def CC_NoOverflow  : ConditionCode<9>;   // No overflow  ; of == 0
 def CC_Always      : ConditionCode<10>;  // Always
 
 //===----------------------------------------------------------------------===//
+// Access Width for Format 3 instructions
+//===----------------------------------------------------------------------===//
+class AccessWidth<bits<2> val> {
+  bits<2> Value = val;
+}
+def AW_8Bit   : AccessWidth<0>;
+def AW_16Bit  : AccessWidth<1>;
+def AW_32Bit  : AccessWidth<1>;
+
+//===----------------------------------------------------------------------===//
 // Format 1 instruction class in TeeRISC : <|opcode|ra|rb|rc|rd|cond|>
 //===----------------------------------------------------------------------===//
 
@@ -130,7 +140,7 @@ class F2<bits<6> op, dag outs, dag ins, string asmstr, list<dag> pattern>:
 // Format 3 instruction class in TeeRISC : <|opcode|ra|rb|imm|bw|>
 //===----------------------------------------------------------------------===//
 
-class F3<bits<6> op, bits<2> bit_width, dag outs, dag ins, string asmstr, list<dag> pattern>:
+class F3<bits<6> op, AccessWidth aw, dag outs, dag ins, string asmstr, list<dag> pattern>:
       TeeRISCInst<outs, ins, asmstr, pattern, Form3>
 {
   bits<5> rD;
@@ -140,7 +150,7 @@ class F3<bits<6> op, bits<2> bit_width, dag outs, dag ins, string asmstr, list<d
 
   let Inst{25-21} = rD;
   let Inst{20-2} = addr;
-  let Inst{1-0}  = bit_width;
+  let Inst{1-0}  = aw.Value;
 
   let DecoderMethod = "DecodeMem";
 }

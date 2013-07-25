@@ -93,12 +93,12 @@ def OR_IMM: F2<13, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16),
                 [(set IntRegs:$rD, (or IntRegs:$rS1, (i32 imm16:$imm16)))]>;
 
 let mayLoad = 1 in
-def LD:     F3<16, 2, (outs IntRegs:$rD), (ins memri:$addr), 
+def LD:     F3<16, AW_32Bit, (outs IntRegs:$rD), (ins memri:$addr), 
                 "$rD = *(uint32_t *) $addr", 
                 [(set IntRegs:$rD, (load iaddr:$addr))]>;
 
 let mayStore = 1 in
-def ST:     F3<17, 2, (outs), (ins IntRegs:$rD, memri:$addr),
+def ST:     F3<17, AW_32Bit, (outs), (ins IntRegs:$rD, memri:$addr),
                 "*(uint32_t *) $addr = $rD", 
                [(store IntRegs:$rD, iaddr:$addr)]>;
 
