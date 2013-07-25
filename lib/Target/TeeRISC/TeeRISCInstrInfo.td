@@ -102,7 +102,8 @@ def ST:     F3<17, 2, (outs), (ins IntRegs:$rD, memri:$addr),
                 "*(uint32_t *) $addr = $rD", 
                [(store IntRegs:$rD, iaddr:$addr)]>;
 
-let isCall = 1, isBranch = 1, Uses = [LR, R1] in
+let isCall = 1, isBranch = 1, Uses = [LR, R1],
+    rS1 = 0, rS2 = 0 in
 def CALL:   F1<19, 0, 0, (outs), (ins IntRegs:$rD), 
                 "$rD()", 
                 [(TeeRISCCALL IntRegs:$rD)]>;
