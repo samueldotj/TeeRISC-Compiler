@@ -20,9 +20,6 @@ include "TeeRISCInstrFormats.td"
 //===----------------------------------------------------------------------===//
 // Instruction Pattern Stuff
 //===----------------------------------------------------------------------===//
-def simm16  : PatLeaf<(imm), [{ return isInt<16>(N->getSExtValue()); }]>;
-def imm16   : PatLeaf<(imm), [{ return isUInt<16>(N->getSExtValue()); }]>;
-
 def LO16 : SDNodeXForm<imm, [{
     return CurDAG->getTargetConstant((unsigned)N->getZExtValue() & 0xffff,
                                      MVT::i32);
@@ -59,6 +56,12 @@ def callseq_start : SDNode<"ISD::CALLSEQ_START", SDT_TeeRISCCallSeqStart,
 
 def callseq_end   : SDNode<"ISD::CALLSEQ_END", SDT_TeeRISCCallSeqEnd,
                            [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
+
+
+//===----------------------------------------------------------------------===//
+// Operand Types
+//===----------------------------------------------------------------------===//
+def imm16   : PatLeaf<(imm), [{ return isUInt<16>(N->getSExtValue()); }]>;
 
 //===----------------------------------------------------------------------===//
 // Addressing Modes
