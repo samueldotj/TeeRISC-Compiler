@@ -70,10 +70,28 @@ class TeeRISCInst<dag outs, dag ins, string asmstr, list<dag> pattern, Format f>
 }
 
 //===----------------------------------------------------------------------===//
+// Condition Condes
+//===----------------------------------------------------------------------===//
+class ConditionCode<bits<6> val> {
+  bits<6> Value = val;
+}
+def CC_Equal       : ConditionCode<0>;   // ==   ; zf == 1
+def CC_NotEqual    : ConditionCode<1>;   // !=   ; zf == 0
+def CC_LTZero      : ConditionCode<2>;   // < 0  ; sf == 1
+def CC_GTZero      : ConditionCode<3>;   // > 0  ; sf == 0
+def CC_GE          : ConditionCode<4>;   // >=   ; cf == 1
+def CC_LT          : ConditionCode<5>;   // <    ; cf == 0
+def CC_S_GE        : ConditionCode<6>;   // >= (signed)  ; sf == of
+def CC_S_LT        : ConditionCode<7>;   // <  (signed)  ; sf != of
+def CC_Overflow    : ConditionCode<8>;   // Overflow     ; of == 1
+def CC_NoOverflow  : ConditionCode<9>;   // No overflow  ; of == 0
+def CC_Always      : ConditionCode<10>;  // Always
+
+//===----------------------------------------------------------------------===//
 // Format 1 instruction class in TeeRISC : <|opcode|ra|rb|rc|rd|cond|>
 //===----------------------------------------------------------------------===//
 
-class F1<bits<6> op, bits<5> rExtra, bits<6> cond, 
+class F1<bits<6> op, bits<5> rExtra, ConditionCode cond, 
          dag outs, dag ins, string asmstr, list<dag> pattern>:
       TeeRISCInst<outs, ins, asmstr, pattern, Form1>
 {
@@ -87,7 +105,7 @@ class F1<bits<6> op, bits<5> rExtra, bits<6> cond,
   let Inst{20-16} = rS1;
   let Inst{15-11} = rS2;
   let Inst{10-6}  = rExtra;
-  let Inst{5-0}   = cond;
+  let Inst{5-0}   = cond.Value;
 }
 
 //===----------------------------------------------------------------------===//

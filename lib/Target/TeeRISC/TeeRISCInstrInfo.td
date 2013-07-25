@@ -76,11 +76,11 @@ def memri:  Operand<i32> {
 //===----------------------------------------------------------------------===// 
 // Instructions
 //===----------------------------------------------------------------------===//
-def ADD:    F1<1, 0, 0, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def ADD:    F1<1, 0, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 + $rS2", 
                 [(set IntRegs:$rD, (add IntRegs:$rS1, IntRegs:$rS2))]>;
 
-def OR:     F1<7, 0, 0, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def OR:     F1<7, 0, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 | $rS2", 
                 [(set IntRegs:$rD, (or IntRegs:$rS1, IntRegs:$rS2))]>;
 
@@ -104,7 +104,7 @@ def ST:     F3<17, 2, (outs), (ins IntRegs:$rD, memri:$addr),
 
 let isCall = 1, isBranch = 1, Uses = [LR, R1],
     rS1 = 0, rS2 = 0 in
-def CALL:   F1<19, 0, 0, (outs), (ins IntRegs:$rD), 
+def CALL:   F1<19, 0, CC_Always, (outs), (ins IntRegs:$rD), 
                 "$rD()", 
                 [(TeeRISCCALL IntRegs:$rD)]>;
 
