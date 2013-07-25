@@ -83,10 +83,32 @@ def ADD:    F1<1, 0, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$
                 "$rD = $rS1 + $rS2", 
                 [(set IntRegs:$rD, (add IntRegs:$rS1, IntRegs:$rS2))]>;
 
+//===----------------------------------------------------------------------===// 
+// Logical Operations
+//===----------------------------------------------------------------------===//
+def AND:    F1<6, 0, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+                "$rD = $rS1 & $rS2", 
+                [(set IntRegs:$rD, (and IntRegs:$rS1, IntRegs:$rS2))]>;
+
 def OR:     F1<7, 0, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 | $rS2", 
                 [(set IntRegs:$rD, (or IntRegs:$rS1, IntRegs:$rS2))]>;
 
+def XOR:    F1<8, 0, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+                "$rD = $rS1 ^ $rS2", 
+                [(set IntRegs:$rD, (xor IntRegs:$rS1, IntRegs:$rS2))]>;
+
+def LSHIFT: F1<10, 0, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+                "$rD = $rS1 << $rS2", 
+                [(set IntRegs:$rD, (shl IntRegs:$rS1, IntRegs:$rS2))]>;
+
+def RSHIFT: F1<11, 0, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+                "$rD = $rS1 >> $rS2", 
+                [(set IntRegs:$rD, (srl IntRegs:$rS1, IntRegs:$rS2))]>;
+
+//===----------------------------------------------------------------------===// 
+// Operations on immediate
+//===----------------------------------------------------------------------===//
 def ADD_IMM:F2<12, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16), 
                 "$rD = $rS1 + $imm16", 
                 [(set IntRegs:$rD, (add IntRegs:$rS1, (i32 imm16:$imm16)))]>;
@@ -95,6 +117,9 @@ def OR_IMM: F2<13, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16),
                 "$rD = $rS1 | $imm16", 
                 [(set IntRegs:$rD, (or IntRegs:$rS1, (i32 imm16:$imm16)))]>;
 
+//===----------------------------------------------------------------------===// 
+// Load/Store instructions
+//===----------------------------------------------------------------------===//
 let mayLoad = 1 in
 def LD:     F3<16, AW_32Bit, (outs IntRegs:$rD), (ins memri:$addr), 
                 "$rD = *(uint32_t *) $addr", 
@@ -105,6 +130,9 @@ def ST:     F3<17, AW_32Bit, (outs), (ins IntRegs:$rD, memri:$addr),
                 "*(uint32_t *) $addr = $rD", 
                [(store IntRegs:$rD, iaddr:$addr)]>;
 
+//===----------------------------------------------------------------------===// 
+// Brranch instructions
+//===----------------------------------------------------------------------===//
 let isCall = 1, isBranch = 1, Uses = [LR, R1],
     rS1 = 0, rS2 = 0 in
 def CALL:   F1<19, 0, CC_Always, (outs), (ins IntRegs:$rD), 
