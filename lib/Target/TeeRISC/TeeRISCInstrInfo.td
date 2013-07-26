@@ -76,66 +76,66 @@ def memri:  Operand<i32> {
 //===----------------------------------------------------------------------===// 
 // Instructions
 //===----------------------------------------------------------------------===//
-def ADD:    F1<1, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def ADD:    F1<0, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 + $rS2", 
                 [(set IntRegs:$rD, (add IntRegs:$rS1, IntRegs:$rS2))]>;
 
-def SUB:    F1<2, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def SUB:    F1<1, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 - $rS2", 
                 [(set IntRegs:$rD, (sub IntRegs:$rS1, IntRegs:$rS2))]>;
 
 //===----------------------------------------------------------------------===// 
 // Logical Operations
 //===----------------------------------------------------------------------===//
-def AND:    F1<6, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def AND:    F1<5, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 & $rS2", 
                 [(set IntRegs:$rD, (and IntRegs:$rS1, IntRegs:$rS2))]>;
 
-def OR:     F1<7, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def OR:     F1<6, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 | $rS2", 
                 [(set IntRegs:$rD, (or IntRegs:$rS1, IntRegs:$rS2))]>;
 
-def XOR:    F1<8, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def XOR:    F1<7, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 ^ $rS2", 
                 [(set IntRegs:$rD, (xor IntRegs:$rS1, IntRegs:$rS2))]>;
 
-def LSHIFT: F1<10, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def LSHIFT: F1<8, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 << $rS2", 
                 [(set IntRegs:$rD, (shl IntRegs:$rS1, IntRegs:$rS2))]>;
 
-def RSHIFT: F1<11, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def RSHIFT: F1<9, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 >> $rS2", 
                 [(set IntRegs:$rD, (srl IntRegs:$rS1, IntRegs:$rS2))]>;
 
 //===----------------------------------------------------------------------===// 
 // Operations on immediate
 //===----------------------------------------------------------------------===//
-def ADD_IMM:F2<12, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16), 
+def ADD_IMM:F2<10, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16), 
                 "$rD = $rS1 + $imm16", 
                 [(set IntRegs:$rD, (add IntRegs:$rS1, (i32 imm16:$imm16)))]>;
 
-def OR_IMM: F2<13, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16), 
+def OR_IMM: F2<12, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16), 
                 "$rD = $rS1 | $imm16", 
                 [(set IntRegs:$rD, (or IntRegs:$rS1, (i32 imm16:$imm16)))]>;
 def LSHIFT_IMM: 
-            F2<14, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16), 
+            F2<13, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16), 
                 "$rD = $rS1 << $imm16", 
                 [(set IntRegs:$rD, (shl IntRegs:$rS1, (i32 imm16:$imm16)))]>;
 
 def RSHIFT_IMM: 
-            F2<15, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16), 
+            F2<14, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16), 
                 "$rD = $rS1 << $imm16", 
                 [(set IntRegs:$rD, (srl IntRegs:$rS1, (i32 imm16:$imm16)))]>;
 //===----------------------------------------------------------------------===// 
 // Load/Store instructions
 //===----------------------------------------------------------------------===//
 let mayLoad = 1 in
-def LD:     F3<16, AW_32Bit, (outs IntRegs:$rD), (ins memri:$addr), 
+def LD:     F3<20, AW_32Bit, (outs IntRegs:$rD), (ins memri:$addr), 
                 "$rD = *(uint32_t *) $addr", 
                 [(set IntRegs:$rD, (load iaddr:$addr))]>;
 
 let mayStore = 1 in
-def ST:     F3<17, AW_32Bit, (outs), (ins IntRegs:$rD, memri:$addr),
+def ST:     F3<21, AW_32Bit, (outs), (ins IntRegs:$rD, memri:$addr),
                 "*(uint32_t *) $addr = $rD", 
                [(store IntRegs:$rD, iaddr:$addr)]>;
 
@@ -144,13 +144,13 @@ def ST:     F3<17, AW_32Bit, (outs), (ins IntRegs:$rD, memri:$addr),
 //===----------------------------------------------------------------------===//
 let isCall = 1, isBranch = 1, Uses = [LR],
     rS1 = ZERO.Num, rS2 = ZERO.Num in
-def CALL:   F1<19, ZERO.Num, CC_Always, (outs), (ins IntRegs:$rD), 
+def CALL:   F1<22, ZERO.Num, CC_Always, (outs), (ins IntRegs:$rD), 
                 "$rD()", 
                 [(TeeRISCCALL IntRegs:$rD)]>;
 
 let isReturn=1, isTerminator=1,  isBarrier=1, hasCtrlDep=1, isCodeGenOnly=1,
     rD = IP.Num, rS1 = LR.Num, rS2 = ZERO.Num in
-def RET:    F1<1, ZERO.Num, CC_Always, (outs), (ins IntRegs:$dst),
+def RET:    F1<ADD.Opcode, ZERO.Num, CC_Always, (outs), (ins IntRegs:$dst),
                   "return $dst",
                   [(TeeRISCRET IntRegs:$dst)]>;
 
