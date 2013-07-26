@@ -142,23 +142,24 @@ def ST:     F3<17, AW_32Bit, (outs), (ins IntRegs:$rD, memri:$addr),
 //===----------------------------------------------------------------------===// 
 // Brranch instructions
 //===----------------------------------------------------------------------===//
-let isCall = 1, isBranch = 1, Uses = [LR, R1],
-    rS1 = 0, rS2 = 0 in
+let isCall = 1, isBranch = 1, Uses = [LR],
+    rS1 = ZERO.Num, rS2 = ZERO.Num in
 def CALL:   F1<19, 0, CC_Always, (outs), (ins IntRegs:$rD), 
                 "$rD()", 
                 [(TeeRISCCALL IntRegs:$rD)]>;
 
-//===----------------------------------------------------------------------===//
-// Pseudo Instructions
-//===----------------------------------------------------------------------===//
-let isReturn=1, isTerminator=1, isCodeGenOnly=1,
-    isBarrier=1, hasCtrlDep=1 in
-def RET:    Pseudo<(outs), (ins IntRegs:$dst),
+let isReturn=1, isTerminator=1,  isBarrier=1, hasCtrlDep=1, isCodeGenOnly=1,
+    rD = IP.Num, rS1 = LR.Num, rS2 = ZERO.Num in
+def RET:    F1<1, 0, CC_Always, (outs), (ins IntRegs:$dst),
                   "return $dst",
                   [(TeeRISCRET IntRegs:$dst)]>;
 
-// As stack alignment is always done with addiu, we need a 16-bit immediate
-let isCodeGenOnly=1, Defs = [SP], Uses = [SP] in {
+//===----------------------------------------------------------------------===//
+// Pseudo Instructions
+//===----------------------------------------------------------------------===//
+// As stack alignment is always done with ADD, we need a 16-bit immediate
+let isCodeGenOnly=1, isPseudo=1,
+    Defs = [SP], Uses = [SP] in {
 def ADJCALLSTACKDOWN:
             Pseudo<(outs), (ins i32imm:$amt),
                   "#ADJCALLSTACKDOWN $amt",
