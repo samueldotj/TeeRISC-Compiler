@@ -114,6 +114,10 @@ def ADD_IMM:F2<10, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16),
                 "$rD = $rS1 + $imm16", 
                 [(set IntRegs:$rD, (add IntRegs:$rS1, (i32 imm16:$imm16)))]>;
 
+def AND_IMM:F2<11, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16), 
+                "$rD = $rS1 & $imm16", 
+                [(set IntRegs:$rD, (and IntRegs:$rS1, (i32 imm16:$imm16)))]>;
+
 def OR_IMM: F2<12, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16), 
                 "$rD = $rS1 | $imm16", 
                 [(set IntRegs:$rD, (or IntRegs:$rS1, (i32 imm16:$imm16)))]>;
