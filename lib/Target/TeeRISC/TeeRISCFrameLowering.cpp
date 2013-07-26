@@ -139,6 +139,38 @@ void TeeRISCFrameLowering::emitEpilogue(MachineFunction &MF,
 void TeeRISCFrameLowering::
 eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
                               MachineBasicBlock::iterator I) const {
+  const TeeRISCInstrInfo &TII =
+    *static_cast<const TeeRISCInstrInfo*>(MF.getTarget().getInstrInfo());
+  if (!hasReservedCallFrame(MF)) {
+    // If we have a frame pointer, turn the adjcallstackup instruction into a
+    // 'SP = SP + (-amt)' and the adjcallstackdown instruction into
+    // 'SP = SP + amt'
+    MachineInstr *Old = I;
+    int Amount = Old->getOperand(0).getImm() + 4;
+    if (Amount != 0) {
+      // We need to keep the stack aligned properly.  To do this, we round the
+      // amount of space needed for the outgoing arguments up to the next
+      // alignment boundary.
+      unsigned Align = getStackAlignment();
+      Amount = (Amount + Align - 1) / Align * Align;
+
+      MachineInstr *New;
+      if (Old->getOpcode() == TeeRISC::ADJCALLSTACKDOWN) {
+        New = BuildMI(MF,Old->getDebugLoc(), TII.get(TeeRISC::ADD_IMM), TeeRISC::SP)
+                .addReg(TeeRISC::SP).addImm(-Amount);
+      } else {
+        assert(Old->getOpcode() == TeeRISC::ADJCALLSTACKUP);
+        New = BuildMI(MF,Old->getDebugLoc(), TII.get(TeeRISC::ADD_IMM),TeeRISC::SP)
+                .addReg(TeeRISC::SP).addImm(Amount);
+      }
+
+      // Replace the pseudo instruction with a new instruction...
+      MBB.insert(I, New);
+    }
+  }
+
+  // Simply discard ADJCALLSTACKDOWN, ADJCALLSTACKUP instructions.
+  MBB.erase(I);
 }
 
 bool TeeRISCFrameLowering::hasReservedCallFrame(const MachineFunction &MF) const {
