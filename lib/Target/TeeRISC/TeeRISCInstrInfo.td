@@ -30,9 +30,6 @@ def HI16 : SDNodeXForm<imm, [{
     return CurDAG->getTargetConstant((unsigned)N->getZExtValue() >> 16, MVT::i32);
 }]>;
 
-def SETHIimm : PatLeaf<(imm), [{
-  return isShiftedUInt<16, 16>(N->getZExtValue());
-}], HI16>;
 
 //===----------------------------------------------------------------------===//
 // MBlaze type profiles
@@ -152,10 +149,6 @@ def RET:    Pseudo<(outs), (ins IntRegs:$dst),
                   "return $dst",
                   [(TeeRISCRET IntRegs:$dst)]>;
 
-def SETHIi: Pseudo<(outs IntRegs:$dst), (ins i32imm:$src),
-                   "sethi $src, $dst",
-                   [(set i32:$dst, SETHIimm:$src)]>;
-
 // As stack alignment is always done with addiu, we need a 16-bit immediate
 let Defs = [SP], Uses = [SP] in {
 def ADJCALLSTACKDOWN:
@@ -177,6 +170,13 @@ def ADJCALLSTACKUP:
 def : Pat<(i32 imm16:$val),
           (OR_IMM (i32 R0), imm:$val)>;
 
-// Arbitrary immediates.
+// Arbitrary 32bit immediate.
+// rX = r0 | High_16bit
+// rX = rX << 16
+// rX = rx | Low_16bit
 def : Pat<(i32 imm:$val),
-          (OR_IMM (SETHIi (HI16 imm:$val)), (LO16 imm:$val))>;
+          (OR_IMM 
+            (LSHIFT 
+              (OR_IMM (i32 R0), (HI16 imm:$val)), 
+              (i32 16)),
+            (LO16 imm:$val))>;
