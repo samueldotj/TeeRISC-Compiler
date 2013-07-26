@@ -32,7 +32,7 @@ def HI16 : SDNodeXForm<imm, [{
 
 
 //===----------------------------------------------------------------------===//
-// MBlaze type profiles
+// TeeRISC type profiles
 //===----------------------------------------------------------------------===//
 def SDT_TeeRISCCall         : SDTypeProfile<0, -1, [SDTCisVT<0, i32>]>;
 def SDT_TeeRISCRet          : SDTypeProfile<0, 1, [SDTCisInt<0>]>;
@@ -40,7 +40,7 @@ def SDT_TeeRISCCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>]>;
 def SDT_TeeRISCCallSeqEnd   : SDCallSeqEnd<[SDTCisVT<0, i32>, SDTCisVT<1, i32>]>;
 
 //===----------------------------------------------------------------------===//
-// MBlaze specific nodes
+// TeeRISC specific nodes
 //===----------------------------------------------------------------------===//
 def TeeRISCCALL   : SDNode<"TeeRISC_ISD::CALL", SDT_TeeRISCCall,
                            [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue, SDNPVariadic]>;
@@ -76,34 +76,34 @@ def memri:  Operand<i32> {
 //===----------------------------------------------------------------------===// 
 // Instructions
 //===----------------------------------------------------------------------===//
-def ADD:    F1<1, 0, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def ADD:    F1<1, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 + $rS2", 
                 [(set IntRegs:$rD, (add IntRegs:$rS1, IntRegs:$rS2))]>;
 
-def SUB:    F1<2, 0, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def SUB:    F1<2, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 - $rS2", 
                 [(set IntRegs:$rD, (sub IntRegs:$rS1, IntRegs:$rS2))]>;
 
 //===----------------------------------------------------------------------===// 
 // Logical Operations
 //===----------------------------------------------------------------------===//
-def AND:    F1<6, 0, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def AND:    F1<6, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 & $rS2", 
                 [(set IntRegs:$rD, (and IntRegs:$rS1, IntRegs:$rS2))]>;
 
-def OR:     F1<7, 0, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def OR:     F1<7, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 | $rS2", 
                 [(set IntRegs:$rD, (or IntRegs:$rS1, IntRegs:$rS2))]>;
 
-def XOR:    F1<8, 0, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def XOR:    F1<8, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 ^ $rS2", 
                 [(set IntRegs:$rD, (xor IntRegs:$rS1, IntRegs:$rS2))]>;
 
-def LSHIFT: F1<10, 0, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def LSHIFT: F1<10, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 << $rS2", 
                 [(set IntRegs:$rD, (shl IntRegs:$rS1, IntRegs:$rS2))]>;
 
-def RSHIFT: F1<11, 0, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def RSHIFT: F1<11, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 >> $rS2", 
                 [(set IntRegs:$rD, (srl IntRegs:$rS1, IntRegs:$rS2))]>;
 
@@ -144,13 +144,13 @@ def ST:     F3<17, AW_32Bit, (outs), (ins IntRegs:$rD, memri:$addr),
 //===----------------------------------------------------------------------===//
 let isCall = 1, isBranch = 1, Uses = [LR],
     rS1 = ZERO.Num, rS2 = ZERO.Num in
-def CALL:   F1<19, 0, CC_Always, (outs), (ins IntRegs:$rD), 
+def CALL:   F1<19, ZERO.Num, CC_Always, (outs), (ins IntRegs:$rD), 
                 "$rD()", 
                 [(TeeRISCCALL IntRegs:$rD)]>;
 
 let isReturn=1, isTerminator=1,  isBarrier=1, hasCtrlDep=1, isCodeGenOnly=1,
     rD = IP.Num, rS1 = LR.Num, rS2 = ZERO.Num in
-def RET:    F1<1, 0, CC_Always, (outs), (ins IntRegs:$dst),
+def RET:    F1<1, ZERO.Num, CC_Always, (outs), (ins IntRegs:$dst),
                   "return $dst",
                   [(TeeRISCRET IntRegs:$dst)]>;
 
@@ -162,12 +162,12 @@ let isCodeGenOnly=1, isPseudo=1,
     Defs = [SP], Uses = [SP] in {
 def ADJCALLSTACKDOWN:
             Pseudo<(outs), (ins i32imm:$amt),
-                  "#ADJCALLSTACKDOWN $amt",
+                  "SP -= $amt",
                   [(callseq_start timm:$amt)]>;
 def ADJCALLSTACKUP:
             Pseudo<(outs),
                   (ins i32imm:$amt1, i32imm:$amt2),
-                  "#ADJCALLSTACKUP $amt1",
+                  "SP += $amt1",
                   [(callseq_end timm:$amt1, timm:$amt2)]>;
 }
 
