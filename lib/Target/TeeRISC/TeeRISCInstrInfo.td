@@ -158,7 +158,7 @@ def RET:    Pseudo<(outs), (ins IntRegs:$dst),
                   [(TeeRISCRET IntRegs:$dst)]>;
 
 // As stack alignment is always done with addiu, we need a 16-bit immediate
-let Defs = [SP], Uses = [SP] in {
+let isCodeGenOnly=1, Defs = [SP], Uses = [SP] in {
 def ADJCALLSTACKDOWN:
             Pseudo<(outs), (ins i32imm:$amt),
                   "#ADJCALLSTACKDOWN $amt",
