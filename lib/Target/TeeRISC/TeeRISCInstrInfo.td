@@ -117,7 +117,15 @@ def ADD_IMM:F2<12, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16),
 def OR_IMM: F2<13, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16), 
                 "$rD = $rS1 | $imm16", 
                 [(set IntRegs:$rD, (or IntRegs:$rS1, (i32 imm16:$imm16)))]>;
+def LSHIFT_IMM: 
+            F2<14, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16), 
+                "$rD = $rS1 << $imm16", 
+                [(set IntRegs:$rD, (shl IntRegs:$rS1, (i32 imm16:$imm16)))]>;
 
+def RSHIFT_IMM: 
+            F2<15, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16), 
+                "$rD = $rS1 << $imm16", 
+                [(set IntRegs:$rD, (srl IntRegs:$rS1, (i32 imm16:$imm16)))]>;
 //===----------------------------------------------------------------------===// 
 // Load/Store instructions
 //===----------------------------------------------------------------------===//
@@ -176,7 +184,7 @@ def : Pat<(i32 imm16:$val),
 // rX = rx | Low_16bit
 def : Pat<(i32 imm:$val),
           (OR_IMM 
-            (LSHIFT 
+            (LSHIFT_IMM 
               (OR_IMM (i32 R0), (HI16 imm:$val)), 
               (i32 16)),
             (LO16 imm:$val))>;
