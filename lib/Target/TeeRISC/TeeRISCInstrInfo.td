@@ -73,71 +73,46 @@ def memri:  Operand<i32> {
   let MIOperandInfo = (ops IntRegs, i32imm);
 }
 
+class ArithLogic<bits<6> op, SDNode OpNode, string asmstr, bit isComm = 0, bit isSigned=0>:
+      F1<op, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), asmstr,
+         [(set IntRegs:$rD, (OpNode IntRegs:$rS1, IntRegs:$rS2))]> {
+    let isCommutable = isComm;
+    let isSignedOperation = isSigned;
+}
+
 //===----------------------------------------------------------------------===// 
 // Arithmetic Instructions
 //===----------------------------------------------------------------------===//
-class Arith<bits<6> op, SDNode OpNode, string asmstr>:
-      F1<op, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), asmstr,
-         [(set IntRegs:$rD, (OpNode IntRegs:$rS1, IntRegs:$rS2))]>;
-
-def ADD:    Arith<0, add, "$rD = $rS1 + $rS2">;
-def SUB:    Arith<1, sub, "$rD = $rS1 - $rS2">;
-def MUL:    Arith<2, sub, "$rD = $rS1 * $rS2">;
-def UDIV:   Arith<3, sub, "$rD = $rS1 / $rS2">;
-def UMOD:   Arith<4, sub, "$rD = $rS1 % $rS2">;
-
-let isSignedOperation = 1 in
-{
-def SDIV:   Arith<3, sub, "$rD = $rS1 / $rS2">;
-def SMOD:   Arith<4, sub, "$rD = $rS1 % $rS2">;
-}
+def ADD:        ArithLogic<0, add,  "$rD = $rS1 + $rS2", 1>;
+def SUB:        ArithLogic<1, sub,  "$rD = $rS1 - $rS2">;
+def MUL:        ArithLogic<2, mul,  "$rD = $rS1 * $rS2", 1>;
+def UDIV:       ArithLogic<3, udiv, "$rD = $rS1 / $rS2">;
+def UMOD:       ArithLogic<4, sub,  "$rD = $rS1 % $rS2">;
+def SDIV:       ArithLogic<3, sub,  "$rD = $rS1 / $rS2", 0, 1>;
+def SMOD:       ArithLogic<4, sub,  "$rD = $rS1 % $rS2", 0, 1>;
 
 //===----------------------------------------------------------------------===// 
 // Logical Operations
 //===----------------------------------------------------------------------===//
-def AND:    F1<5, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
-                "$rD = $rS1 & $rS2", 
-                [(set IntRegs:$rD, (and IntRegs:$rS1, IntRegs:$rS2))]>;
-
-def OR:     F1<6, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
-                "$rD = $rS1 | $rS2", 
-                [(set IntRegs:$rD, (or IntRegs:$rS1, IntRegs:$rS2))]>;
-
-def XOR:    F1<7, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
-                "$rD = $rS1 ^ $rS2", 
-                [(set IntRegs:$rD, (xor IntRegs:$rS1, IntRegs:$rS2))]>;
-
-def LSHIFT: F1<8, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
-                "$rD = $rS1 << $rS2", 
-                [(set IntRegs:$rD, (shl IntRegs:$rS1, IntRegs:$rS2))]>;
-
-def RSHIFT: F1<9, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
-                "$rD = $rS1 >> $rS2", 
-                [(set IntRegs:$rD, (srl IntRegs:$rS1, IntRegs:$rS2))]>;
+def AND:        ArithLogic<5, and,  "$rD = $rS1 & $rS2", 1>;
+def OR:         ArithLogic<6, or,   "$rD = $rS1 | $rS2", 1>;
+def XOR:        ArithLogic<7, xor,  "$rD = $rS1 ^ $rS2", 1>;
+def LSHIFT:     ArithLogic<8, shl,  "$rD = $rS1 << $rS2">;
+def RSHIFT:     ArithLogic<9, srl,  "$rD = $rS1 >> $rS2">;
 
 //===----------------------------------------------------------------------===// 
 // Operations on immediate
 //===----------------------------------------------------------------------===//
-def ADD_IMM:F2<10, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16), 
-                "$rD = $rS1 + $imm16", 
-                [(set IntRegs:$rD, (add IntRegs:$rS1, (i32 imm16:$imm16)))]>;
+class ArithLogicImm<bits<6> op, SDNode OpNode, string asmstr, bit isComm = 0>:
+      F2<op, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16), asmstr,
+         [(set IntRegs:$rD, (OpNode IntRegs:$rS1, (i32 imm16:$imm16)))]>;
 
-def AND_IMM:F2<11, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16), 
-                "$rD = $rS1 & $imm16", 
-                [(set IntRegs:$rD, (and IntRegs:$rS1, (i32 imm16:$imm16)))]>;
+def ADD_IMM:    ArithLogicImm<10, add,  "$rD = $rS1 + $imm16">;
+def AND_IMM:    ArithLogicImm<11, and,  "$rD = $rS1 & $imm16">;
+def OR_IMM:     ArithLogicImm<12, or,   "$rD = $rS1 | $imm16">;
+def LSHIFT_IMM: ArithLogicImm<13, shl,  "$rD = $rS1 << $imm16">;
+def RSHIFT_IMM: ArithLogicImm<14, shl,  "$rD = $rS1 >> $imm16">;
 
-def OR_IMM: F2<12, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16), 
-                "$rD = $rS1 | $imm16", 
-                [(set IntRegs:$rD, (or IntRegs:$rS1, (i32 imm16:$imm16)))]>;
-def LSHIFT_IMM: 
-            F2<13, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16), 
-                "$rD = $rS1 << $imm16", 
-                [(set IntRegs:$rD, (shl IntRegs:$rS1, (i32 imm16:$imm16)))]>;
-
-def RSHIFT_IMM: 
-            F2<14, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16), 
-                "$rD = $rS1 << $imm16", 
-                [(set IntRegs:$rD, (srl IntRegs:$rS1, (i32 imm16:$imm16)))]>;
 //===----------------------------------------------------------------------===// 
 // Load/Store instructions
 //===----------------------------------------------------------------------===//
