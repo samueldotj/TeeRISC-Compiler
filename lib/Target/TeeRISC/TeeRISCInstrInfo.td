@@ -74,37 +74,23 @@ def memri:  Operand<i32> {
 }
 
 //===----------------------------------------------------------------------===// 
-// Instructions
+// Arithmetic Instructions
 //===----------------------------------------------------------------------===//
-def ADD:    F1<0, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
-                "$rD = $rS1 + $rS2", 
-                [(set IntRegs:$rD, (add IntRegs:$rS1, IntRegs:$rS2))]>;
+class Arith<bits<6> op, SDNode OpNode, string asmstr>:
+      F1<op, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), asmstr,
+         [(set IntRegs:$rD, (OpNode IntRegs:$rS1, IntRegs:$rS2))]>;
 
-def SUB:    F1<1, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
-                "$rD = $rS1 - $rS2", 
-                [(set IntRegs:$rD, (sub IntRegs:$rS1, IntRegs:$rS2))]>;
-
-def MUL:    F1<2, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
-                "$rD = $rS1 * $rS2", 
-                [(set IntRegs:$rD, (mul IntRegs:$rS1, IntRegs:$rS2))]>;
-
-def UDIV:   F1<3, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
-                "$rD = (uint32_t) $rS1 / $rS2", 
-                [(set IntRegs:$rD, (sdiv IntRegs:$rS1, IntRegs:$rS2))]>;
+def ADD:    Arith<0, add, "$rD = $rS1 + $rS2">;
+def SUB:    Arith<1, sub, "$rD = $rS1 - $rS2">;
+def MUL:    Arith<2, sub, "$rD = $rS1 * $rS2">;
+def UDIV:   Arith<3, sub, "$rD = $rS1 / $rS2">;
+def UMOD:   Arith<4, sub, "$rD = $rS1 % $rS2">;
 
 let isSignedOperation = 1 in
-def SDIV:   F1<3, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
-                "$rD = (int32_t) $rS1 / $rS2", 
-                [(set IntRegs:$rD, (udiv IntRegs:$rS1, IntRegs:$rS2))]>;
-
-def UMOD:   F1<4, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
-                "$rD = (uint32_t) $rS1 % $rS2", 
-                [(set IntRegs:$rD, (srem IntRegs:$rS1, IntRegs:$rS2))]>;
-
-let isSignedOperation = 1 in
-def SMOD:   F1<4, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
-                "$rD = (int32_t) $rS1 % $rS2", 
-                [(set IntRegs:$rD, (urem IntRegs:$rS1, IntRegs:$rS2))]>;
+{
+def SDIV:   Arith<3, sub, "$rD = $rS1 / $rS2">;
+def SMOD:   Arith<4, sub, "$rD = $rS1 % $rS2">;
+}
 
 //===----------------------------------------------------------------------===// 
 // Logical Operations
