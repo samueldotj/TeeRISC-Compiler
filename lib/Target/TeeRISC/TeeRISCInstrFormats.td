@@ -101,13 +101,14 @@ def AW_32Bit  : AccessWidth<1>;
 // Format 1 instruction class in TeeRISC : <|opcode|rD|rS1|rS2|rE|CC|SO|0|>
 //===----------------------------------------------------------------------===//
 
-class F1<bits<6> op, bits<5> rExtra, ConditionCode cond,
-         dag outs, dag ins, string asmstr, list<dag> pattern>:
+class F1<bits<6> op, dag outs, dag ins, string asmstr, list<dag> pattern>:
       TeeRISCInst<outs, ins, asmstr, pattern, Form1>
 {
   bits<5> rD;
   bits<5> rS1;
   bits<5> rS2;
+  bits<5> rExtra = ZERO.Num;
+  ConditionCode cond = CC_Always;
   bits<1> isSignedOperation = 0;
 
   let Opcode = op;

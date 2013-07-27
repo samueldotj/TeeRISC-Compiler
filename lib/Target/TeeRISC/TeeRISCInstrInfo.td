@@ -76,56 +76,56 @@ def memri:  Operand<i32> {
 //===----------------------------------------------------------------------===// 
 // Instructions
 //===----------------------------------------------------------------------===//
-def ADD:    F1<0, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def ADD:    F1<0, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 + $rS2", 
                 [(set IntRegs:$rD, (add IntRegs:$rS1, IntRegs:$rS2))]>;
 
-def SUB:    F1<1, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def SUB:    F1<1, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 - $rS2", 
                 [(set IntRegs:$rD, (sub IntRegs:$rS1, IntRegs:$rS2))]>;
 
-def MUL:    F1<2, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def MUL:    F1<2, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 * $rS2", 
                 [(set IntRegs:$rD, (mul IntRegs:$rS1, IntRegs:$rS2))]>;
 
-def UDIV:   F1<3, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
-                "$rD = $rS1 / $rS2", 
+def UDIV:   F1<3, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+                "$rD = (uint32_t) $rS1 / $rS2", 
                 [(set IntRegs:$rD, (sdiv IntRegs:$rS1, IntRegs:$rS2))]>;
 
 let isSignedOperation = 1 in
-def SDIV:   F1<3, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
-                "$rD = $rS1 / $rS2", 
+def SDIV:   F1<3, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+                "$rD = (int32_t) $rS1 / $rS2", 
                 [(set IntRegs:$rD, (udiv IntRegs:$rS1, IntRegs:$rS2))]>;
 
-def UMOD:   F1<4, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
-                "$rD = $rS1 % $rS2", 
+def UMOD:   F1<4, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+                "$rD = (uint32_t) $rS1 % $rS2", 
                 [(set IntRegs:$rD, (srem IntRegs:$rS1, IntRegs:$rS2))]>;
 
 let isSignedOperation = 1 in
-def SMOD:   F1<4, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
-                "$rD = $rS1 % $rS2", 
+def SMOD:   F1<4, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+                "$rD = (int32_t) $rS1 % $rS2", 
                 [(set IntRegs:$rD, (urem IntRegs:$rS1, IntRegs:$rS2))]>;
 
 //===----------------------------------------------------------------------===// 
 // Logical Operations
 //===----------------------------------------------------------------------===//
-def AND:    F1<5, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def AND:    F1<5, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 & $rS2", 
                 [(set IntRegs:$rD, (and IntRegs:$rS1, IntRegs:$rS2))]>;
 
-def OR:     F1<6, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def OR:     F1<6, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 | $rS2", 
                 [(set IntRegs:$rD, (or IntRegs:$rS1, IntRegs:$rS2))]>;
 
-def XOR:    F1<7, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def XOR:    F1<7, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 ^ $rS2", 
                 [(set IntRegs:$rD, (xor IntRegs:$rS1, IntRegs:$rS2))]>;
 
-def LSHIFT: F1<8, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def LSHIFT: F1<8, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 << $rS2", 
                 [(set IntRegs:$rD, (shl IntRegs:$rS1, IntRegs:$rS2))]>;
 
-def RSHIFT: F1<9, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def RSHIFT: F1<9, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 >> $rS2", 
                 [(set IntRegs:$rD, (srl IntRegs:$rS1, IntRegs:$rS2))]>;
 
@@ -170,13 +170,13 @@ def ST:     F3<21, AW_32Bit, (outs), (ins IntRegs:$rD, memri:$addr),
 //===----------------------------------------------------------------------===//
 let isCall = 1, isBranch = 1, Uses = [LR],
     rS1 = ZERO.Num, rS2 = ZERO.Num in
-def CALL:   F1<22, ZERO.Num, CC_Always, (outs), (ins IntRegs:$rD), 
+def CALL:   F1<22, (outs), (ins IntRegs:$rD), 
                 "$rD()", 
                 [(TeeRISCCALL IntRegs:$rD)]>;
 
 let isReturn=1, isTerminator=1,  isBarrier=1, hasCtrlDep=1, isCodeGenOnly=1,
     rD = IP.Num, rS1 = LR.Num, rS2 = ZERO.Num in
-def RET:    F1<ADD.Opcode, ZERO.Num, CC_Always, (outs), (ins IntRegs:$dst),
+def RET:    F1<ADD.Opcode, (outs), (ins IntRegs:$dst),
                   "return $dst",
                   [(TeeRISCRET IntRegs:$dst)]>;
 
