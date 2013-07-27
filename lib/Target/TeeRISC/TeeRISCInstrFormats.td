@@ -72,8 +72,8 @@ class TeeRISCInst<dag outs, dag ins, string asmstr, list<dag> pattern, Format f>
 //===----------------------------------------------------------------------===//
 // Condition Condes
 //===----------------------------------------------------------------------===//
-class ConditionCode<bits<6> val> {
-  bits<6> Value = val;
+class ConditionCode<bits<4> val> {
+  bits<4> Value = val;
 }
 def CC_Equal       : ConditionCode<0>;   // ==   ; zf == 1
 def CC_NotEqual    : ConditionCode<1>;   // !=   ; zf == 0
@@ -98,16 +98,17 @@ def AW_16Bit  : AccessWidth<1>;
 def AW_32Bit  : AccessWidth<1>;
 
 //===----------------------------------------------------------------------===//
-// Format 1 instruction class in TeeRISC : <|opcode|ra|rb|rc|rd|cond|>
+// Format 1 instruction class in TeeRISC : <|opcode|rD|rS1|rS2|rE|CC|SO|0|>
 //===----------------------------------------------------------------------===//
 
-class F1<bits<6> op, bits<5> rExtra, ConditionCode cond, 
+class F1<bits<6> op, bits<5> rExtra, ConditionCode cond,
          dag outs, dag ins, string asmstr, list<dag> pattern>:
       TeeRISCInst<outs, ins, asmstr, pattern, Form1>
 {
   bits<5> rD;
   bits<5> rS1;
   bits<5> rS2;
+  bits<1> isSignedOperation = 0;
 
   let Opcode = op;
 
@@ -115,7 +116,9 @@ class F1<bits<6> op, bits<5> rExtra, ConditionCode cond,
   let Inst{20-16} = rS1;
   let Inst{15-11} = rS2;
   let Inst{10-6}  = rExtra;
-  let Inst{5-0}   = cond.Value;
+  let Inst{5-2}   = cond.Value;
+  let Inst{1} = isSignedOperation;
+  let Inst{0} = 0;
 }
 
 //===----------------------------------------------------------------------===//

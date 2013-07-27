@@ -88,13 +88,23 @@ def MUL:    F1<2, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, In
                 "$rD = $rS1 * $rS2", 
                 [(set IntRegs:$rD, (mul IntRegs:$rS1, IntRegs:$rS2))]>;
 
-def DIV:    F1<3, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+def UDIV:   F1<3, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 / $rS2", 
                 [(set IntRegs:$rD, (sdiv IntRegs:$rS1, IntRegs:$rS2))]>;
 
-def MOD:    F1<4, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+let isSignedOperation = 1 in
+def SDIV:   F1<3, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+                "$rD = $rS1 / $rS2", 
+                [(set IntRegs:$rD, (udiv IntRegs:$rS1, IntRegs:$rS2))]>;
+
+def UMOD:   F1<4, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
                 "$rD = $rS1 % $rS2", 
                 [(set IntRegs:$rD, (srem IntRegs:$rS1, IntRegs:$rS2))]>;
+
+let isSignedOperation = 1 in
+def SMOD:   F1<4, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+                "$rD = $rS1 % $rS2", 
+                [(set IntRegs:$rD, (urem IntRegs:$rS1, IntRegs:$rS2))]>;
 
 //===----------------------------------------------------------------------===// 
 // Logical Operations
