@@ -95,7 +95,7 @@ class AccessWidth<bits<2> val> {
 }
 def AW_8Bit   : AccessWidth<0>;
 def AW_16Bit  : AccessWidth<1>;
-def AW_32Bit  : AccessWidth<1>;
+def AW_32Bit  : AccessWidth<2>;
 
 //===----------------------------------------------------------------------===//
 // Format 1 instruction class in TeeRISC : <|opcode|rD|rS1|rS2|rE|CC|SO|0|>

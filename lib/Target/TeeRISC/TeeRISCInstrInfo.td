@@ -110,17 +110,30 @@ def LSHIFT_IMM: ArithLogicImm<13, shl,  "$rD = $rS1 << $imm16">;
 def RSHIFT_IMM: ArithLogicImm<14, shl,  "$rD = $rS1 >> $imm16">;
 
 //===----------------------------------------------------------------------===// 
-// Load/Store instructions
+// Load instructions
 //===----------------------------------------------------------------------===//
-let mayLoad = 1 in
-def LD:     F3<20, AW_32Bit, (outs IntRegs:$rD), (ins memri:$addr), 
-                "$rD = *(uint32_t *) $addr", 
-                [(set IntRegs:$rD, (load iaddr:$addr))]>;
+class LoadRI<PatFrag OpNode, AccessWidth aw, string asmstr> :
+             F3<20, aw, (outs IntRegs:$rD), (ins memri:$addr), asmstr,
+                [(set IntRegs:$rD, (OpNode iaddr:$addr))]> {
+    let mayLoad = 1;
+}
 
-let mayStore = 1 in
-def ST:     F3<21, AW_32Bit, (outs), (ins IntRegs:$rD, memri:$addr),
-                "*(uint32_t *) $addr = $rD", 
-               [(store IntRegs:$rD, iaddr:$addr)]>;
+def LD:     LoadRI<load,            AW_32Bit, "$rD = *(uint32_t *) $addr">;
+def LDH:    LoadRI<zextloadi16,     AW_16Bit, "$rD = *(uint16_t *) $addr">;
+def LDB:    LoadRI<zextloadi8,      AW_8Bit,  "$rD = *(uint8_t *) $addr">;
+
+//===----------------------------------------------------------------------===// 
+// Store instructions
+//===----------------------------------------------------------------------===//
+class StoreRI<PatFrag OpNode, AccessWidth aw, string asmstr> :
+             F3<21, aw, (outs), (ins IntRegs:$rD, memri:$addr), asmstr,
+                [(OpNode IntRegs:$rD, iaddr:$addr)]> {
+    let mayStore = 1;
+}
+
+def ST:     StoreRI<store,          AW_32Bit, "*(uint32_t *) $addr = $rD">;
+def STH:    StoreRI<truncstorei16,  AW_16Bit, "*(uint16_t *) $addr = $rD">;
+def STB:    StoreRI<truncstorei8,   AW_8Bit,  "*(uint8_t *) $addr = $rD">;
 
 //===----------------------------------------------------------------------===// 
 // Brranch instructions
