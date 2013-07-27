@@ -17,28 +17,6 @@
 
 include "TeeRISCInstrFormats.td"
 
-//===----------------------------------------------------------------------===//
-// TeeRISC type profiles
-//===----------------------------------------------------------------------===//
-def SDT_TeeRISCCall         : SDTypeProfile<0, -1, [SDTCisVT<0, i32>]>;
-def SDT_TeeRISCRet          : SDTypeProfile<0, 1, [SDTCisInt<0>]>;
-def SDT_TeeRISCCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>]>;
-def SDT_TeeRISCCallSeqEnd   : SDCallSeqEnd<[SDTCisVT<0, i32>, SDTCisVT<1, i32>]>;
-
-//===----------------------------------------------------------------------===//
-// TeeRISC specific nodes
-//===----------------------------------------------------------------------===//
-def TeeRISCCALL   : SDNode<"TeeRISC_ISD::CALL", SDT_TeeRISCCall,
-                           [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue, SDNPVariadic]>;
-def TeeRISCRET    : SDNode<"TeeRISC_ISD::RET", SDT_TeeRISCRet,
-                           [SDNPHasChain, SDNPOptInGlue]>;
-
-def callseq_start : SDNode<"ISD::CALLSEQ_START", SDT_TeeRISCCallSeqStart,
-                           [SDNPHasChain, SDNPOutGlue]>;
-
-def callseq_end   : SDNode<"ISD::CALLSEQ_END", SDT_TeeRISCCallSeqEnd,
-                           [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
-
 //===----------------------------------------------------------------------===// 
 // Arithmetic and Logical Instructions
 //===----------------------------------------------------------------------===//
@@ -67,10 +45,12 @@ def RSHIFT:     ArithLogic<9, srl,  "$rD = $rS1 >> $rS2">;
 // Operations on immediate
 //===----------------------------------------------------------------------===//
 // Immediate Pattern
-def imm16   : PatLeaf<(imm), [{ return isUInt<16>(N->getSExtValue()); }]>;
+def Imm16: PatLeaf<(imm), [{ return isUInt<16>(N->getSExtValue()); }]>;
+def Imm14: PatLeaf<(imm), [{ return isUInt<14>(N->getSExtValue()); }]>;
+
 class ArithLogicImm<bits<6> op, SDNode OpNode, string asmstr, bit isComm = 0>:
       F2<op, (outs IntRegs:$rD), (ins IntRegs:$rS1, i32imm:$imm16), asmstr,
-         [(set IntRegs:$rD, (OpNode IntRegs:$rS1, (i32 imm16:$imm16)))]>;
+         [(set IntRegs:$rD, (OpNode IntRegs:$rS1, Imm16:$imm16))]>;
 
 def ADD_IMM:    ArithLogicImm<10, add,  "$rD = $rS1 + $imm16">;
 def AND_IMM:    ArithLogicImm<11, and,  "$rD = $rS1 & $imm16">;
@@ -83,22 +63,22 @@ def RSHIFT_IMM: ArithLogicImm<14, shl,  "$rD = $rS1 >> $imm16">;
 // TeeRISC supports only one addressing mode = [R+I]
 //===----------------------------------------------------------------------===//
 // Address Pattern
-def iaddr : ComplexPattern<i32, 2, "SelectAddrRegImm", [frameindex], []>;
+def AddrRI: ComplexPattern<i32, 2, "SelectAddrRegImm", [frameindex], []>;
 
 // Address operands
-def memri:  Operand<i32> {
+def MemRI:  Operand<i32> {
   let PrintMethod = "printMemOperand";
   let EncoderMethod = "getMemEncoding";
   
-  let MIOperandInfo = (ops IntRegs, i32imm);
+  let MIOperandInfo = (ops IntRegs, Imm14);
 }
 
 //===----------------------------------------------------------------------===// 
 // Load instructions
 //===----------------------------------------------------------------------===//
 class LoadRI<PatFrag OpNode, AccessWidth aw, string asmstr> :
-             F3<20, aw, (outs IntRegs:$rD), (ins memri:$addr), asmstr,
-                [(set IntRegs:$rD, (OpNode iaddr:$addr))]> {
+             F3<20, aw, (outs IntRegs:$rD), (ins MemRI:$addr), asmstr,
+                [(set IntRegs:$rD, (OpNode AddrRI:$addr))]> {
     let mayLoad = 1;
 }
 
@@ -110,8 +90,8 @@ def LDB:    LoadRI<zextloadi8,      AW_8Bit,  "$rD = *(uint8_t *) $addr">;
 // Store instructions
 //===----------------------------------------------------------------------===//
 class StoreRI<PatFrag OpNode, AccessWidth aw, string asmstr> :
-             F3<21, aw, (outs), (ins IntRegs:$rD, memri:$addr), asmstr,
-                [(OpNode IntRegs:$rD, iaddr:$addr)]> {
+             F3<21, aw, (outs), (ins IntRegs:$rD, MemRI:$addr), asmstr,
+                [(OpNode IntRegs:$rD, AddrRI:$addr)]> {
     let mayStore = 1;
 }
 
@@ -122,6 +102,24 @@ def STB:    StoreRI<truncstorei8,   AW_8Bit,  "*(uint8_t *) $addr = $rD">;
 //===----------------------------------------------------------------------===// 
 // Brranch instructions
 //===----------------------------------------------------------------------===//
+// TeeRISC type profiles
+def SDT_TeeRISCCall         : SDTypeProfile<0, -1, [SDTCisVT<0, i32>]>;
+def SDT_TeeRISCRet          : SDTypeProfile<0, 1, [SDTCisInt<0>]>;
+def SDT_TeeRISCCallSeqStart : SDCallSeqStart<[SDTCisVT<0, i32>]>;
+def SDT_TeeRISCCallSeqEnd   : SDCallSeqEnd<[SDTCisVT<0, i32>, SDTCisVT<1, i32>]>;
+
+// TeeRISC specific nodes
+def TeeRISCCALL   : SDNode<"TeeRISC_ISD::CALL", SDT_TeeRISCCall,
+                           [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue, SDNPVariadic]>;
+def TeeRISCRET    : SDNode<"TeeRISC_ISD::RET", SDT_TeeRISCRet,
+                           [SDNPHasChain, SDNPOptInGlue]>;
+
+def callseq_start : SDNode<"ISD::CALLSEQ_START", SDT_TeeRISCCallSeqStart,
+                           [SDNPHasChain, SDNPOutGlue]>;
+
+def callseq_end   : SDNode<"ISD::CALLSEQ_END", SDT_TeeRISCCallSeqEnd,
+                           [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
+
 let isCall = 1, isBranch = 1, Uses = [LR],
     rS1 = ZERO.Num, rS2 = ZERO.Num in
 def CALL:   F1<22, (outs), (ins IntRegs:$rD), 
@@ -160,8 +158,8 @@ def HI16 : SDNodeXForm<imm, [{
 
 // Small immediates.
 // rX = (R0 | Imm_16bit)
-def : Pat<(i32 imm16:$val),
-          (OR_IMM (i32 R0), imm:$val)>;
+def : Pat<(i32 Imm16:$val),
+          (OR_IMM R0, imm:$val)>;
 
 // Arbitrary 32bit immediate.
 // rX = (((R0 | High_16bit) << 16) | Low_16bit)
@@ -169,5 +167,5 @@ def : Pat<(i32 imm16:$val),
 def : Pat<(i32 imm:$val),
           (OR_IMM 
             (LSHIFT_IMM 
-              (OR_IMM (i32 R0), (HI16 imm:$val)), (i32 16)),
+              (OR_IMM R0, (HI16 imm:$val)), 16),
             (LO16 imm:$val))>;
