@@ -84,6 +84,18 @@ def SUB:    F1<1, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, In
                 "$rD = $rS1 - $rS2", 
                 [(set IntRegs:$rD, (sub IntRegs:$rS1, IntRegs:$rS2))]>;
 
+def MUL:    F1<2, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+                "$rD = $rS1 * $rS2", 
+                [(set IntRegs:$rD, (mul IntRegs:$rS1, IntRegs:$rS2))]>;
+
+def DIV:    F1<3, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+                "$rD = $rS1 / $rS2", 
+                [(set IntRegs:$rD, (sdiv IntRegs:$rS1, IntRegs:$rS2))]>;
+
+def MOD:    F1<4, ZERO.Num, CC_Always, (outs IntRegs:$rD), (ins IntRegs:$rS1, IntRegs:$rS2), 
+                "$rD = $rS1 % $rS2", 
+                [(set IntRegs:$rD, (srem IntRegs:$rS1, IntRegs:$rS2))]>;
+
 //===----------------------------------------------------------------------===// 
 // Logical Operations
 //===----------------------------------------------------------------------===//
