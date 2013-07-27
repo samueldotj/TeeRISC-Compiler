@@ -21,15 +21,13 @@ include "TeeRISCInstrFormats.td"
 // Instruction Pattern Stuff
 //===----------------------------------------------------------------------===//
 def LO16 : SDNodeXForm<imm, [{
-    return CurDAG->getTargetConstant((unsigned)N->getZExtValue() & 0xffff,
-                                     MVT::i32);
+    return CurDAG->getTargetConstant((unsigned)N->getZExtValue() & 0xffff, MVT::i32);
 }]>;
 
 def HI16 : SDNodeXForm<imm, [{
     // Transformation function: shift the immediate value down into the low bits.
     return CurDAG->getTargetConstant((unsigned)N->getZExtValue() >> 16, MVT::i32);
 }]>;
-
 
 //===----------------------------------------------------------------------===//
 // TeeRISC type profiles
@@ -47,13 +45,11 @@ def TeeRISCCALL   : SDNode<"TeeRISC_ISD::CALL", SDT_TeeRISCCall,
 def TeeRISCRET    : SDNode<"TeeRISC_ISD::RET", SDT_TeeRISCRet,
                            [SDNPHasChain, SDNPOptInGlue]>;
 
-
 def callseq_start : SDNode<"ISD::CALLSEQ_START", SDT_TeeRISCCallSeqStart,
                            [SDNPHasChain, SDNPOutGlue]>;
 
 def callseq_end   : SDNode<"ISD::CALLSEQ_END", SDT_TeeRISCCallSeqEnd,
                            [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
-
 
 //===----------------------------------------------------------------------===//
 // Operand Types
@@ -145,17 +141,12 @@ def RET:    F1<ADD.Opcode, (outs), (ins IntRegs:$dst),
 // Pseudo Instructions
 //===----------------------------------------------------------------------===//
 // As stack alignment is always done with ADD, we need a 16-bit immediate
-let isCodeGenOnly=1, isPseudo=1,
-    Defs = [SP], Uses = [SP] in {
-def ADJCALLSTACKDOWN:
-            Pseudo<(outs), (ins i32imm:$amt),
-                  "SP -= $amt",
-                  [(callseq_start timm:$amt)]>;
-def ADJCALLSTACKUP:
-            Pseudo<(outs),
-                  (ins i32imm:$amt1, i32imm:$amt2),
-                  "SP += $amt1",
-                  [(callseq_end timm:$amt1, timm:$amt2)]>;
+let isCodeGenOnly=1, isPseudo=1, Defs = [SP], Uses = [SP] in {
+def ADJCALLSTACKDOWN: Pseudo<(outs), (ins i32imm:$amt), 
+                            "SP -= $amt", [(callseq_start timm:$amt)]>;
+
+def ADJCALLSTACKUP:   Pseudo<(outs), (ins i32imm:$amt1, i32imm:$amt2), 
+                            "SP += $amt1", [(callseq_end timm:$amt1, timm:$amt2)]>;
 }
 
 //===----------------------------------------------------------------------===//
@@ -163,16 +154,15 @@ def ADJCALLSTACKUP:
 //===----------------------------------------------------------------------===//
 
 // Small immediates.
+// rX = (R0 | Imm_16bit)
 def : Pat<(i32 imm16:$val),
           (OR_IMM (i32 R0), imm:$val)>;
 
 // Arbitrary 32bit immediate.
-// rX = r0 | High_16bit
-// rX = rX << 16
-// rX = rx | Low_16bit
+// rX = (((R0 | High_16bit) << 16) | Low_16bit)
+// This will result in 3 instructions
 def : Pat<(i32 imm:$val),
           (OR_IMM 
             (LSHIFT_IMM 
-              (OR_IMM (i32 R0), (HI16 imm:$val)), 
-              (i32 16)),
+              (OR_IMM (i32 R0), (HI16 imm:$val)), (i32 16)),
             (LO16 imm:$val))>;
