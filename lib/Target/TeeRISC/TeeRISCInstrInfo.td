@@ -126,10 +126,22 @@ def CALL:   F1<22, (outs), (ins IntRegs:$rD),
                 "$rD()", 
                 [(TeeRISCCALL IntRegs:$rD)]>;
 
-let isReturn=1, isTerminator=1,  isBarrier=1, hasCtrlDep=1, isCodeGenOnly=1,
+let isReturn=1, isTerminator=1,  isBarrier=1, hasCtrlDep=1,
     rD = IP.Num, rS1 = LR.Num, rS2 = ZERO.Num in
-def RET:    F1<ADD.Opcode, (outs), (ins IntRegs:$dst),
-                  "return $dst",
+def RET:    F1<23, (outs), (ins IntRegs:$dst),
+                  "return",
+                  [(TeeRISCRET IntRegs:$dst)]>;
+
+let isReturn=1, isTerminator=1,  isBarrier=1, hasCtrlDep=1,
+    rD = IP.Num, rS1 = I_LR.Num, rS2 = ZERO.Num in
+def IRET:   F1<23, (outs), (ins IntRegs:$dst),
+                  "i_return",
+                  [(TeeRISCRET IntRegs:$dst)]>;
+
+let isReturn=1, isTerminator=1,  isBarrier=1, hasCtrlDep=1,
+    rD = IP.Num, rS1 = E_LR.Num, rS2 = ZERO.Num in
+def ERET:   F1<23, (outs), (ins IntRegs:$dst),
+                  "e_return",
                   [(TeeRISCRET IntRegs:$dst)]>;
 
 //===----------------------------------------------------------------------===//

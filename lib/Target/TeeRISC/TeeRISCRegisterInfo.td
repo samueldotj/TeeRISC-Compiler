@@ -33,6 +33,12 @@ def IP:     TeeRISCReg<16, "IP"> {
 def LR:     TeeRISCReg<17, "LR"> {
   let Aliases = [R17];
 }
+def I_LR:   TeeRISCReg<18, "I_LR"> {
+  let Aliases = [R18];
+}
+def E_LR:   TeeRISCReg<19, "E_LR"> {
+  let Aliases = [R19];
+}
 
 // Register classes.
 def IntRegs : RegisterClass</* namespace       */ "TeeRISC", 
