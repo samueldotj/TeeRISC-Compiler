@@ -120,29 +120,19 @@ def callseq_start : SDNode<"ISD::CALLSEQ_START", SDT_TeeRISCCallSeqStart,
 def callseq_end   : SDNode<"ISD::CALLSEQ_END", SDT_TeeRISCCallSeqEnd,
                            [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
 
-let isCall = 1, isBranch = 1, Uses = [LR],
-    rS1 = ZERO.Num, rS2 = ZERO.Num in
-def CALL:   F1<22, (outs), (ins IntRegs:$rD), 
-                "$rD()", 
-                [(TeeRISCCALL IntRegs:$rD)]>;
+let isCall = 1, isBranch = 1, Uses = [LR],   rS1 = ZERO.Num, rS2 = ZERO.Num in
+def CALL:   F1<22, (outs), (ins IntRegs:$rD), "$rD()", 
+              [(TeeRISCCALL IntRegs:$rD)]>;
 
-let isReturn=1, isTerminator=1,  isBarrier=1, hasCtrlDep=1,
-    rD = IP.Num, rS1 = LR.Num, rS2 = ZERO.Num in
-def RET:    F1<23, (outs), (ins IntRegs:$dst),
-                  "return",
-                  [(TeeRISCRET IntRegs:$dst)]>;
+let isReturn=1, isTerminator=1,  isBarrier=1, hasCtrlDep=1, rD = IP.Num,  rS2 = ZERO.Num in
+class Return<string asmstr, bits<5> lr>:
+      F1<23, (outs), (ins IntRegs:$dst), asmstr, [(TeeRISCRET IntRegs:$dst)]> {
+  let rS1 = lr;
+}
 
-let isReturn=1, isTerminator=1,  isBarrier=1, hasCtrlDep=1,
-    rD = IP.Num, rS1 = I_LR.Num, rS2 = ZERO.Num in
-def IRET:   F1<23, (outs), (ins IntRegs:$dst),
-                  "i_return",
-                  [(TeeRISCRET IntRegs:$dst)]>;
-
-let isReturn=1, isTerminator=1,  isBarrier=1, hasCtrlDep=1,
-    rD = IP.Num, rS1 = E_LR.Num, rS2 = ZERO.Num in
-def ERET:   F1<23, (outs), (ins IntRegs:$dst),
-                  "e_return",
-                  [(TeeRISCRET IntRegs:$dst)]>;
+def RET:     Return<"return",    LR.Num>;
+def IRET:    Return<"i_return",  I_LR.Num>;
+def ERET:    Return<"e_return",  E_LR.Num>;
 
 //===----------------------------------------------------------------------===//
 // Pseudo Instructions
