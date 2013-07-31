@@ -456,6 +456,7 @@ TeeRISCTargetLowering::LowerReturn(SDValue Chain,
 SDValue
 TeeRISCTargetLowering::LowerOperation(SDValue Op, SelectionDAG &DAG) const {
 
+  assert(0 && "LowerOperation() is Not implemented");  
   return SDValue();
 }
 
